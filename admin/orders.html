@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-TW"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><title>訂單管理 | 美師傅後台</title><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{"colors":{"on-primary":"#ffffff","on-secondary":"#ffffff","on-background":"#30121a","inverse-surface":"#48262e","on-error-container":"#93000a","on-secondary-fixed":"#360c17","inverse-on-surface":"#ffecee","on-surface":"#30121a","surface-container-highest":"#ffd9df","on-tertiary":"#ffffff","tertiary-container":"#6d7772","surface-variant":"#ffd9df","surface-container-low":"#fff0f1","secondary-fixed":"#ffd9de","tertiary":"#545e5a","primary-fixed":"#fbdae3","on-secondary-fixed-variant":"#6b3741","primary":"#6e555d","on-tertiary-fixed":"#151d1a","tertiary-fixed-dim":"#bfc9c3","surface-tint":"#71585f","background":"#fff8f7","secondary":"#874e58","surface-dim":"#ffcdd7","outline":"#807477","error-container":"#ffdad6","on-surface-variant":"#4e4447","inverse-primary":"#debec7","surface-container":"#ffe8eb","on-primary-container":"#fffbff","primary-fixed-dim":"#debec7","surface":"#fff8f7","on-error":"#ffffff","on-primary-fixed":"#29161d","surface-container-high":"#ffe1e5","secondary-fixed-dim":"#fcb3be","on-tertiary-fixed-variant":"#3f4945","surface-container-lowest":"#ffffff","outline-variant":"#d1c3c6","error":"#ba1a1a","primary-container":"#886e75","secondary-container":"#ffb6c1","on-primary-fixed-variant":"#574148","on-secondary-container":"#7b444e","tertiary-fixed":"#dbe5df"},"borderRadius":{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},"spacing":{"md":"24px","margin-mobile":"20px","margin-desktop":"64px","gutter":"24px","xs":"4px","sm":"12px","xl":"80px","base":"8px","lg":"48px"},"fontFamily":{"display":["Playfair Display"],"body-lg":["Plus Jakarta Sans"],"headline-md":["Playfair Display"],"caption":["Plus Jakarta Sans"],"body-md":["Plus Jakarta Sans"],"label-md":["Plus Jakarta Sans"],"headline-lg-mobile":["Playfair Display"],"headline-lg":["Playfair Display"]},"fontSize":{"display":["48px",{"lineHeight":"1.2","letterSpacing":"-0.02em","fontWeight":"700"}],"body-lg":["18px",{"lineHeight":"1.6","fontWeight":"400"}],"headline-md":["24px",{"lineHeight":"1.4","fontWeight":"600"}],"caption":["12px",{"lineHeight":"1.4","fontWeight":"500"}],"body-md":["16px",{"lineHeight":"1.6","fontWeight":"400"}],"label-md":["14px",{"lineHeight":"1.4","letterSpacing":"0.05em","fontWeight":"600"}],"headline-lg-mobile":["28px",{"lineHeight":"1.3","fontWeight":"600"}],"headline-lg":["32px",{"lineHeight":"1.3","fontWeight":"600"}]}}}}</script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@100..900&family=Plus+Jakarta+Sans:wght@100..900&display=swap" rel="stylesheet"/>
+<script src="js/admin.js"></script></head><body class="bg-surface font-body-md text-on-surface"><aside class="fixed left-0 top-0 h-full w-72 bg-surface-container-low shadow-[4px_0_24px_rgba(157,129,137,0.05)] z-50 flex flex-col pt-md pb-md"><div class="px-md mb-lg flex items-center gap-sm"><img alt="美師傅 Logo" class="h-8 w-auto object-contain" src="../assets/logo.png"/><span class="font-headline-md text-headline-md text-primary">美師傅</span></div><nav class="flex-1 px-sm space-y-base"><a class="flex items-center px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all group" href="dashboard.html"><span class="material-symbols-outlined mr-sm text-secondary">dashboard</span><span class="font-label-md text-label-md">儀表板</span></a><a aria-current="page" class="flex items-center px-md py-sm rounded-lg transition-all group bg-secondary-container text-on-secondary-container font-semibold shadow-sm" href="orders.html"><span class="material-symbols-outlined mr-sm text-secondary">shopping_bag</span><span class="font-label-md text-label-md">訂單管理</span></a><a class="flex items-center px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all group" href="products.html"><span class="material-symbols-outlined mr-sm text-secondary">bakery_dining</span><span class="font-label-md text-label-md">產品管理</span></a><a class="flex items-center px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all group" href="materials.html"><span class="material-symbols-outlined mr-sm text-secondary">inventory_2</span><span class="font-label-md text-label-md">材料管理</span></a><a class="flex items-center px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all group" href="finance.html"><span class="material-symbols-outlined mr-sm text-secondary">payments</span><span class="font-label-md text-label-md">財務管理</span></a><a class="flex items-center px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all group" href="users.html"><span class="material-symbols-outlined mr-sm text-secondary">admin_panel_settings</span><span class="font-label-md text-label-md">權限管理</span></a></nav><div class="px-sm"><button class="w-full flex items-center px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" onclick="logout()"><span class="material-symbols-outlined mr-sm text-secondary">logout</span><span class="font-label-md text-label-md">登出</span></button></div></aside><div class="pl-72"><header class="fixed top-0 left-72 right-0 h-20 bg-surface/80 backdrop-blur-xl z-40 flex items-center justify-between px-lg shadow-[0_1px_8px_rgba(0,0,0,0.03)]"><div class="flex items-center gap-xs text-on-surface-variant text-caption"><span>管理系統</span><span class="material-symbols-outlined text-[16px]">chevron_right</span><span class="text-on-surface font-semibold">Order Management</span></div><div class="flex items-center gap-sm pl-md border-l border-outline-variant"><div class="text-right"><p class="font-label-md text-label-md text-on-surface" id="admin-name">管理員</p><p class="text-caption text-on-surface-variant">系統管理員</p></div><div class="w-10 h-10 rounded-full bg-primary flex items-center justify-center shadow-md"><span class="material-symbols-outlined text-on-primary text-[22px]">person</span></div></div></header><main class="relative pt-20 bg-surface min-h-screen"><div class="flex flex-col w-full px-margin-desktop py-lg space-y-xl">
+<section class="flex flex-col gap-sm">
+<div class="flex items-end justify-between">
+<div>
+<h1 class="font-headline-lg text-headline-lg text-on-surface mb-xs">訂單管理</h1>
+<p class="font-body-md text-body-md text-on-surface-variant">查看與管理所有顧客訂單。</p>
+</div>
+</div>
+</section>
+<section class="bg-surface-container-lowest rounded-xl shadow-[0_4px_24px_rgba(157,129,137,0.06)] p-md flex flex-col gap-md">
+<div class="flex items-center justify-between flex-wrap gap-sm">
+<div class="flex items-center gap-sm flex-wrap">
+<div class="relative">
+<span class="material-symbols-outlined absolute left-sm top-1/2 -translate-y-1/2 text-outline">search</span>
+<input class="bg-surface-container pl-10 pr-md py-sm rounded-full font-body-md text-body-md text-on-surface focus:outline-none focus:ring-1 focus:ring-primary w-64 transition-shadow" id="search-input" placeholder="搜尋訂單編號或姓名" type="text"/>
+</div>
+<select class="bg-surface-container px-md py-sm rounded-full font-label-md text-label-md text-on-surface-variant focus:outline-none cursor-pointer" id="status-filter">
+<option value="">所有狀態</option>
+<option value="pending">待處理</option>
+<option value="paid">已付款</option>
+<option value="shipped">已出貨</option>
+<option value="completed">已完成</option>
+<option value="cancelled">已取消</option>
+</select>
+</div>
+<div class="flex items-center gap-xs font-caption text-caption text-on-surface-variant" id="order-count"></div>
+</div>
+<div class="overflow-x-auto w-full">
+<table class="w-full text-left whitespace-nowrap border-collapse">
+<thead>
+<tr class="bg-surface-container font-label-md text-label-md text-on-surface-variant">
+<th class="py-sm px-md font-semibold rounded-tl-lg rounded-bl-lg">訂單編號</th>
+<th class="py-sm px-md font-semibold">下單日期</th>
+<th class="py-sm px-md font-semibold">訂購人</th>
+<th class="py-sm px-md font-semibold">總金額</th>
+<th class="py-sm px-md font-semibold">付款</th>
+<th class="py-sm px-md font-semibold">訂單狀態</th>
+<th class="py-sm px-md font-semibold rounded-tr-lg rounded-br-lg text-right">操作</th>
+</tr>
+</thead>
+<tbody class="font-body-md text-body-md text-on-surface" id="order-tbody"></tbody>
+</table>
+</div>
+<div class="flex items-center justify-between mt-sm pt-sm border-t border-surface-container-high font-body-md text-body-md text-on-surface-variant">
+<div id="page-info"></div>
+<div class="flex gap-xs" id="pagination"></div>
+</div>
+</section>
+</div></main></div>
+<!-- 訂單詳情 Modal -->
+<div class="hidden fixed inset-0 z-[100] bg-inverse-surface/40 backdrop-blur-sm items-center justify-center p-md" id="detail-modal">
+<div class="bg-surface rounded-2xl shadow-2xl max-w-lg w-full max-h-[85vh] overflow-y-auto p-lg space-y-md">
+<div class="flex justify-between items-start">
+<h2 class="font-headline-md text-headline-md text-on-surface">訂單詳情</h2>
+<button class="text-on-surface-variant hover:text-error p-1" onclick="closeModal()"><span class="material-symbols-outlined">close</span></button>
+</div>
+<div id="detail-body"></div>
+</div>
+</div>
+<script>
+requireLogin();
+fillAdminName();
+
+let currentPage = 1;
+
+async function loadOrders() {
+  const q = document.getElementById("search-input").value.trim();
+  const status = document.getElementById("status-filter").value;
+  const params = new URLSearchParams({ page: currentPage, per_page: 10 });
+  if (q) params.set("q", q);
+  if (status) params.set("status", status);
+  try {
+    const d = await adminFetch("/admin/orders?" + params);
+    const tbody = document.getElementById("order-tbody");
+    if (d.orders.length === 0) {
+      tbody.innerHTML = '<tr><td class="py-md px-md text-on-surface-variant" colspan="7">查無訂單</td></tr>';
+    } else {
+      tbody.innerHTML = d.orders.map((o) => `
+        <tr class="hover:bg-surface-container-low transition-colors group">
+          <td class="py-sm px-md font-display text-primary font-bold">#${o.order_no}</td>
+          <td class="py-sm px-md text-on-surface-variant">${o.created_at}</td>
+          <td class="py-sm px-md">
+            <span class="inline-flex items-center gap-xs">
+              <span class="w-6 h-6 rounded-full bg-primary-fixed text-on-primary-fixed inline-flex items-center justify-center font-bold text-[10px]">${o.customer_name.charAt(0)}</span>
+              ${o.customer_name}
+            </span>
+          </td>
+          <td class="py-sm px-md">${formatPrice(o.total)}</td>
+          <td class="py-sm px-md">${o.payment_status === "paid" ? '<span class="text-tertiary font-label-md">已付款</span>' : '<span class="text-error font-label-md">未付款</span>'}</td>
+          <td class="py-sm px-md">${statusBadge(o.status)}</td>
+          <td class="py-sm px-md text-right">
+            <button class="p-xs text-on-surface-variant hover:text-primary transition-colors" onclick="showDetail(${o.id})" title="查看詳情"><span class="material-symbols-outlined text-[20px]">visibility</span></button>
+          </td>
+        </tr>`).join("");
+    }
+    document.getElementById("order-count").textContent = `共找到 ${d.total} 筆訂單`;
+    const start = d.total === 0 ? 0 : (d.page - 1) * d.per_page + 1;
+    const end = Math.min(d.page * d.per_page, d.total);
+    document.getElementById("page-info").textContent = `顯示 ${start} 至 ${end} 筆,共 ${d.total} 筆`;
+    renderPagination(d.page, Math.max(Math.ceil(d.total / d.per_page), 1));
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+function renderPagination(page, pages) {
+  const box = document.getElementById("pagination");
+  let html = `<button class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface-container-high disabled:opacity-50" ${page <= 1 ? "disabled" : ""} onclick="gotoPage(${page - 1})"><span class="material-symbols-outlined text-[18px]">chevron_left</span></button>`;
+  for (let i = 1; i <= pages; i++) {
+    html += `<button class="w-8 h-8 flex items-center justify-center rounded-full ${i === page ? "bg-primary text-on-primary font-bold" : "hover:bg-surface-container-high"}" onclick="gotoPage(${i})">${i}</button>`;
+  }
+  html += `<button class="w-8 h-8 flex items-center justify-center rounded-full hover:bg-surface-container-high disabled:opacity-50" ${page >= pages ? "disabled" : ""} onclick="gotoPage(${page + 1})"><span class="material-symbols-outlined text-[18px]">chevron_right</span></button>`;
+  box.innerHTML = html;
+}
+
+function gotoPage(p) { currentPage = p; loadOrders(); }
+
+async function showDetail(id) {
+  try {
+    const o = await adminFetch("/admin/orders/" + id);
+    const shipping = o.shipping_method === "delivery" ? "宅配到府" : "門市自取";
+    const payment = o.payment_method === "credit" ? "信用卡" : "銀行轉帳";
+    document.getElementById("detail-body").innerHTML = `
+      <div class="space-y-sm font-body-md text-body-md">
+        <div class="flex justify-between"><span class="text-on-surface-variant">訂單編號</span><span class="font-bold text-primary">#${o.order_no}</span></div>
+        <div class="flex justify-between"><span class="text-on-surface-variant">下單時間</span><span>${o.created_at}</span></div>
+        <div class="flex justify-between"><span class="text-on-surface-variant">訂購人</span><span>${o.customer_name}</span></div>
+        <div class="flex justify-between"><span class="text-on-surface-variant">電話</span><span>${o.phone}</span></div>
+        <div class="flex justify-between"><span class="text-on-surface-variant">地址</span><span>${o.address || "-"}</span></div>
+        <div class="flex justify-between"><span class="text-on-surface-variant">配送 / 付款</span><span>${shipping} / ${payment}</span></div>
+        <div class="h-px bg-surface-variant my-sm"></div>
+        <table class="w-full text-left">
+          <thead><tr class="font-label-md text-label-md text-on-surface-variant"><th class="py-xs">商品</th><th class="py-xs text-center">數量</th><th class="py-xs text-right">小計</th></tr></thead>
+          <tbody>
+            ${o.items.map((i) => `<tr><td class="py-xs">${i.product_name}</td><td class="py-xs text-center">${i.quantity}</td><td class="py-xs text-right">${formatPrice(i.subtotal)}</td></tr>`).join("")}
+          </tbody>
+        </table>
+        <div class="h-px bg-surface-variant my-sm"></div>
+        <div class="flex justify-between"><span class="text-on-surface-variant">運費</span><span>${formatPrice(o.shipping_fee)}</span></div>
+        <div class="flex justify-between font-headline-md text-headline-md"><span>總計</span><span class="text-primary">${formatPrice(o.total)}</span></div>
+        <div class="h-px bg-surface-variant my-sm"></div>
+        <div class="flex items-center justify-between gap-sm">
+          <span class="text-on-surface-variant">更新狀態</span>
+          <select class="bg-surface-container px-md py-sm rounded-full font-label-md text-label-md cursor-pointer focus:outline-none" id="status-select">
+            ${["pending", "paid", "shipped", "completed", "cancelled"].map((s) =>
+              `<option value="${s}" ${s === o.status ? "selected" : ""}>${STATUS_STYLE[s].label}</option>`).join("")}
+          </select>
+          <button class="bg-primary text-on-primary font-label-md text-label-md px-md py-sm rounded-full hover:shadow-md transition-all" onclick="updateStatus(${o.id})">儲存</button>
+        </div>
+      </div>`;
+    const modal = document.getElementById("detail-modal");
+    modal.classList.remove("hidden");
+    modal.classList.add("flex");
+  } catch (err) { alert(err.message); }
+}
+
+async function updateStatus(id) {
+  const status = document.getElementById("status-select").value;
+  try {
+    await adminFetch(`/admin/orders/${id}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    });
+    closeModal();
+    loadOrders();
+  } catch (err) { alert(err.message); }
+}
+
+function closeModal() {
+  const modal = document.getElementById("detail-modal");
+  modal.classList.add("hidden");
+  modal.classList.remove("flex");
+}
+
+let searchTimer;
+document.getElementById("search-input").addEventListener("input", () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => { currentPage = 1; loadOrders(); }, 300);
+});
+document.getElementById("status-filter").addEventListener("change", () => { currentPage = 1; loadOrders(); });
+document.getElementById("detail-modal").addEventListener("click", (e) => {
+  if (e.target === e.currentTarget) closeModal();
+});
+
+loadOrders();
+</script></body></html>

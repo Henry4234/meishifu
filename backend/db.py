@@ -1,0 +1,53 @@
+"""PyMySQL 連線輔助:每次請求取得短連線,回傳 dict rows。"""
+from contextlib import contextmanager
+
+import pymysql
+
+import config
+
+
+def get_connection(with_db: bool = True):
+    return pymysql.connect(
+        host=config.DB_HOST,
+        port=config.DB_PORT,
+        user=config.DB_USER,
+        password=config.DB_PASSWORD,
+        database=config.DB_NAME if with_db else None,
+        charset="utf8mb4",
+        cursorclass=pymysql.cursors.DictCursor,
+        autocommit=False,
+    )
+
+
+@contextmanager
+def db_cursor(commit: bool = False):
+    conn = get_connection()
+    try:
+        with conn.cursor() as cur:
+            yield cur
+        if commit:
+            conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def query(sql, args=None):
+    with db_cursor() as cur:
+        cur.execute(sql, args or ())
+        return cur.fetchall()
+
+
+def query_one(sql, args=None):
+    with db_cursor() as cur:
+        cur.execute(sql, args or ())
+        return cur.fetchone()
+
+
+def execute(sql, args=None):
+    """執行寫入,回傳 lastrowid。"""
+    with db_cursor(commit=True) as cur:
+        cur.execute(sql, args or ())
+        return cur.lastrowid

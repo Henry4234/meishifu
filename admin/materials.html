@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="zh-TW"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><title>材料管理 | 美師傅後台</title><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{"colors":{"on-primary":"#ffffff","on-secondary":"#ffffff","on-background":"#30121a","inverse-surface":"#48262e","on-error-container":"#93000a","on-secondary-fixed":"#360c17","inverse-on-surface":"#ffecee","on-surface":"#30121a","surface-container-highest":"#ffd9df","on-tertiary":"#ffffff","tertiary-container":"#6d7772","surface-variant":"#ffd9df","surface-container-low":"#fff0f1","secondary-fixed":"#ffd9de","tertiary":"#545e5a","primary-fixed":"#fbdae3","on-secondary-fixed-variant":"#6b3741","primary":"#6e555d","on-tertiary-fixed":"#151d1a","tertiary-fixed-dim":"#bfc9c3","surface-tint":"#71585f","background":"#fff8f7","secondary":"#874e58","surface-dim":"#ffcdd7","outline":"#807477","error-container":"#ffdad6","on-surface-variant":"#4e4447","inverse-primary":"#debec7","surface-container":"#ffe8eb","on-primary-container":"#fffbff","primary-fixed-dim":"#debec7","surface":"#fff8f7","on-error":"#ffffff","on-primary-fixed":"#29161d","surface-container-high":"#ffe1e5","secondary-fixed-dim":"#fcb3be","on-tertiary-fixed-variant":"#3f4945","surface-container-lowest":"#ffffff","outline-variant":"#d1c3c6","error":"#ba1a1a","primary-container":"#886e75","secondary-container":"#ffb6c1","on-primary-fixed-variant":"#574148","on-secondary-container":"#7b444e","tertiary-fixed":"#dbe5df"},"borderRadius":{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},"spacing":{"md":"24px","margin-mobile":"20px","margin-desktop":"64px","gutter":"24px","xs":"4px","sm":"12px","xl":"80px","base":"8px","lg":"48px"},"fontFamily":{"display":["Playfair Display"],"body-lg":["Plus Jakarta Sans"],"headline-md":["Playfair Display"],"caption":["Plus Jakarta Sans"],"body-md":["Plus Jakarta Sans"],"label-md":["Plus Jakarta Sans"],"headline-lg-mobile":["Playfair Display"],"headline-lg":["Playfair Display"]},"fontSize":{"display":["48px",{"lineHeight":"1.2","letterSpacing":"-0.02em","fontWeight":"700"}],"body-lg":["18px",{"lineHeight":"1.6","fontWeight":"400"}],"headline-md":["24px",{"lineHeight":"1.4","fontWeight":"600"}],"caption":["12px",{"lineHeight":"1.4","fontWeight":"500"}],"body-md":["16px",{"lineHeight":"1.6","fontWeight":"400"}],"label-md":["14px",{"lineHeight":"1.4","letterSpacing":"0.05em","fontWeight":"600"}],"headline-lg-mobile":["28px",{"lineHeight":"1.3","fontWeight":"600"}],"headline-lg":["32px",{"lineHeight":"1.3","fontWeight":"600"}]}}}}</script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@100..900&family=Plus+Jakarta+Sans:wght@100..900&display=swap" rel="stylesheet"/>
+<script src="js/admin.js"></script></head><body class="bg-surface font-body-md text-on-surface"><aside class="fixed left-0 top-0 h-full w-72 bg-surface-container-low shadow-[4px_0_24px_rgba(157,129,137,0.05)] z-50 flex flex-col pt-md pb-md"><div class="px-md mb-lg flex items-center gap-sm"><img alt="美師傅 Logo" class="h-8 w-auto object-contain" src="../assets/logo.png"/><span class="font-headline-md text-headline-md text-primary">美師傅</span></div><nav class="flex-1 px-sm space-y-base"><a class="flex items-center px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all group" href="dashboard.html"><span class="material-symbols-outlined mr-sm text-secondary">dashboard</span><span class="font-label-md text-label-md">儀表板</span></a><a class="flex items-center px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all group" href="orders.html"><span class="material-symbols-outlined mr-sm text-secondary">shopping_bag</span><span class="font-label-md text-label-md">訂單管理</span></a><a class="flex items-center px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all group" href="products.html"><span class="material-symbols-outlined mr-sm text-secondary">bakery_dining</span><span class="font-label-md text-label-md">產品管理</span></a><a aria-current="page" class="flex items-center px-md py-sm rounded-lg transition-all group bg-secondary-container text-on-secondary-container font-semibold shadow-sm" href="materials.html"><span class="material-symbols-outlined mr-sm text-secondary">inventory_2</span><span class="font-label-md text-label-md">材料管理</span></a><a class="flex items-center px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all group" href="finance.html"><span class="material-symbols-outlined mr-sm text-secondary">payments</span><span class="font-label-md text-label-md">財務管理</span></a><a class="flex items-center px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all group" href="users.html"><span class="material-symbols-outlined mr-sm text-secondary">admin_panel_settings</span><span class="font-label-md text-label-md">權限管理</span></a></nav><div class="px-sm"><button class="w-full flex items-center px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" onclick="logout()"><span class="material-symbols-outlined mr-sm text-secondary">logout</span><span class="font-label-md text-label-md">登出</span></button></div></aside><div class="pl-72"><header class="fixed top-0 left-72 right-0 h-20 bg-surface/80 backdrop-blur-xl z-40 flex items-center justify-between px-lg shadow-[0_1px_8px_rgba(0,0,0,0.03)]"><div class="flex items-center gap-xs text-on-surface-variant text-caption"><span>管理系統</span><span class="material-symbols-outlined text-[16px]">chevron_right</span><span class="text-on-surface font-semibold">Material Management</span></div><div class="flex items-center gap-sm pl-md border-l border-outline-variant"><div class="text-right"><p class="font-label-md text-label-md text-on-surface" id="admin-name">管理員</p><p class="text-caption text-on-surface-variant">系統管理員</p></div><div class="w-10 h-10 rounded-full bg-primary flex items-center justify-center shadow-md"><span class="material-symbols-outlined text-on-primary text-[22px]">person</span></div></div></header><main class="relative pt-20 bg-surface min-h-screen"><div class="flex flex-col w-full h-full p-margin-mobile md:p-margin-desktop bg-surface relative overflow-hidden">
+<div class="absolute top-0 right-0 w-[500px] h-[500px] bg-secondary-fixed opacity-[0.15] blur-[120px] rounded-full pointer-events-none -mt-32 -mr-32"></div>
+<!-- Header -->
+<div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-xl relative z-10 gap-md">
+<div class="flex flex-col gap-xs max-w-2xl">
+<h1 class="font-display text-display text-on-surface tracking-tight">材料管理</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant leading-relaxed">
+        精準掌握每一分頂級原物料。庫存需求量依未出貨訂單與商品配方自動計算,請隨時留意庫存水位並及時補貨。
+      </p>
+</div>
+<div class="flex items-center gap-sm mt-4 md:mt-0 shrink-0">
+<button class="flex items-center gap-2 px-6 py-3 rounded-full bg-primary text-on-primary hover:-translate-y-0.5 transition-all duration-300 shadow-sm hover:shadow-md font-label-md" onclick="openMaterialModal()">
+<span class="material-symbols-outlined text-[20px]">add</span>
+<span>新增材料</span>
+</button>
+</div>
+</div>
+<!-- Summary Cards -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-md mb-lg relative z-10">
+<div class="bg-surface-container-lowest rounded-2xl p-6 flex flex-col gap-sm shadow-[0_4px_24px_rgba(157,129,137,0.06)] border border-outline-variant/30">
+<div class="flex justify-between items-center text-on-surface-variant">
+<span class="font-label-md">總物料種類</span>
+<span class="material-symbols-outlined text-secondary opacity-70">category</span>
+</div>
+<div class="flex items-end gap-3">
+<span class="font-display text-[40px] text-primary leading-none" id="stat-total">--</span>
+<span class="font-body-md text-on-surface-variant pb-1">項</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest rounded-2xl p-6 flex flex-col gap-sm shadow-[0_4px_24px_rgba(157,129,137,0.06)] border border-outline-variant/30 relative overflow-hidden">
+<div class="absolute inset-0 bg-error-container/20 pointer-events-none"></div>
+<div class="flex justify-between items-center text-on-surface-variant relative z-10">
+<span class="font-label-md">庫存短缺預警</span>
+<span class="material-symbols-outlined text-error opacity-80">warning</span>
+</div>
+<div class="flex items-end gap-3 relative z-10">
+<span class="font-display text-[40px] text-error leading-none" id="stat-shortage">--</span>
+<span class="font-body-md text-on-surface-variant pb-1">項需立即補貨</span>
+</div>
+</div>
+<div class="bg-surface-container-lowest rounded-2xl p-6 flex flex-col gap-sm shadow-[0_4px_24px_rgba(157,129,137,0.06)] border border-outline-variant/30">
+<div class="flex justify-between items-center text-on-surface-variant">
+<span class="font-label-md">即將到期原物料</span>
+<span class="material-symbols-outlined text-tertiary opacity-70">event_busy</span>
+</div>
+<div class="flex items-end gap-3">
+<span class="font-display text-[40px] text-tertiary leading-none" id="stat-expiring">--</span>
+<span class="font-body-md text-on-surface-variant pb-1">項 (30 天內)</span>
+</div>
+</div>
+</div>
+<!-- Table -->
+<div class="bg-surface-container-lowest rounded-3xl shadow-[0_4px_40px_rgba(157,129,137,0.05)] border border-outline-variant/20 overflow-hidden relative z-10 flex-grow flex flex-col">
+<div class="p-6 border-b border-outline-variant/30 flex flex-col md:flex-row justify-between items-center gap-4 bg-surface-container/30">
+<div class="relative flex-grow md:max-w-64 w-full">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline-variant text-[20px]">search</span>
+<input class="w-full pl-10 pr-4 py-2.5 rounded-xl bg-surface border border-outline-variant/50 focus:border-primary focus:ring-1 focus:ring-primary outline-none transition-all font-body-md text-on-surface" id="mat-search" placeholder="搜尋材料名稱..." type="text"/>
+</div>
+<div class="flex gap-2 w-full md:w-auto overflow-x-auto" id="mat-filters">
+<span class="mat-filter px-4 py-1.5 rounded-full bg-primary-fixed text-on-primary-fixed font-caption whitespace-nowrap cursor-pointer" data-filter="全部">全部</span>
+<span class="mat-filter px-4 py-1.5 rounded-full bg-surface border border-outline-variant/30 text-on-surface-variant font-caption hover:bg-surface-container whitespace-nowrap cursor-pointer transition-colors" data-filter="短缺">短缺預警</span>
+<span class="mat-filter px-4 py-1.5 rounded-full bg-surface border border-outline-variant/30 text-on-surface-variant font-caption hover:bg-surface-container whitespace-nowrap cursor-pointer transition-colors" data-filter="餡料">餡料</span>
+<span class="mat-filter px-4 py-1.5 rounded-full bg-surface border border-outline-variant/30 text-on-surface-variant font-caption hover:bg-surface-container whitespace-nowrap cursor-pointer transition-colors" data-filter="麵粉/油脂">麵粉/油脂</span>
+<span class="mat-filter px-4 py-1.5 rounded-full bg-surface border border-outline-variant/30 text-on-surface-variant font-caption hover:bg-surface-container whitespace-nowrap cursor-pointer transition-colors" data-filter="包材">包材</span>
+</div>
+</div>
+<div class="overflow-x-auto flex-grow">
+<table class="w-full text-left border-collapse min-w-[900px]">
+<thead>
+<tr class="border-b border-outline-variant/30 text-on-surface-variant font-label-md bg-surface-container-low/50">
+<th class="py-4 px-6 font-semibold">材料名稱</th>
+<th class="py-4 px-6 font-semibold">現有庫存</th>
+<th class="py-4 px-6 font-semibold">預估訂單需求量</th>
+<th class="py-4 px-6 font-semibold">單位成本</th>
+<th class="py-4 px-6 font-semibold">庫存狀態</th>
+<th class="py-4 px-6 font-semibold text-right">操作</th>
+</tr>
+</thead>
+<tbody class="font-body-md text-on-surface divide-y divide-outline-variant/10" id="mat-tbody"></tbody>
+</table>
+</div>
+<div class="p-4 border-t border-outline-variant/20 flex justify-between items-center bg-surface-container-lowest text-caption text-on-surface-variant">
+<span id="mat-count"></span>
+</div>
+</div>
+</div></main></div>
+<!-- 新增/編輯材料 Modal -->
+<div class="hidden fixed inset-0 z-[100] bg-inverse-surface/40 backdrop-blur-sm items-center justify-center p-md" id="mat-modal">
+<div class="bg-surface rounded-2xl shadow-2xl max-w-md w-full max-h-[85vh] overflow-y-auto p-lg space-y-md">
+<div class="flex justify-between items-start">
+<h2 class="font-headline-md text-headline-md text-on-surface" id="mat-modal-title">新增材料</h2>
+<button class="text-on-surface-variant hover:text-error p-1" onclick="closeMaterialModal()"><span class="material-symbols-outlined">close</span></button>
+</div>
+<form class="space-y-sm" id="mat-form">
+<input id="mat-id" type="hidden"/>
+<div><label class="font-label-md text-on-surface block mb-1">材料名稱 *</label>
+<input class="w-full bg-surface-container-low px-4 py-3 rounded-lg ring-1 ring-tertiary-fixed focus:ring-2 focus:ring-primary outline-none" id="mat-name" required type="text"/></div>
+<div class="grid grid-cols-2 gap-sm">
+<div><label class="font-label-md text-on-surface block mb-1">分類</label>
+<select class="w-full bg-surface-container-low px-4 py-3 rounded-lg ring-1 ring-tertiary-fixed focus:ring-2 focus:ring-primary outline-none" id="mat-category">
+<option>餡料</option><option>麵粉/油脂</option><option>包材</option><option>其他</option>
+</select></div>
+<div><label class="font-label-md text-on-surface block mb-1">批號</label>
+<input class="w-full bg-surface-container-low px-4 py-3 rounded-lg ring-1 ring-tertiary-fixed focus:ring-2 focus:ring-primary outline-none" id="mat-batch" type="text"/></div>
+</div>
+<div class="grid grid-cols-3 gap-sm">
+<div><label class="font-label-md text-on-surface block mb-1">單位</label>
+<input class="w-full bg-surface-container-low px-4 py-3 rounded-lg ring-1 ring-tertiary-fixed focus:ring-2 focus:ring-primary outline-none" id="mat-unit" placeholder="kg / 顆" type="text" value="kg"/></div>
+<div><label class="font-label-md text-on-surface block mb-1">庫存量</label>
+<input class="w-full bg-surface-container-low px-4 py-3 rounded-lg ring-1 ring-tertiary-fixed focus:ring-2 focus:ring-primary outline-none" id="mat-stock" min="0" step="0.01" type="number" value="0"/></div>
+<div><label class="font-label-md text-on-surface block mb-1">安全水位</label>
+<input class="w-full bg-surface-container-low px-4 py-3 rounded-lg ring-1 ring-tertiary-fixed focus:ring-2 focus:ring-primary outline-none" id="mat-safety" min="0" step="0.01" type="number" value="0"/></div>
+</div>
+<div class="grid grid-cols-2 gap-sm">
+<div><label class="font-label-md text-on-surface block mb-1">單位成本 (NT$)</label>
+<input class="w-full bg-surface-container-low px-4 py-3 rounded-lg ring-1 ring-tertiary-fixed focus:ring-2 focus:ring-primary outline-none" id="mat-cost" min="0" step="0.01" type="number" value="0"/></div>
+<div><label class="font-label-md text-on-surface block mb-1">有效期限</label>
+<input class="w-full bg-surface-container-low px-4 py-3 rounded-lg ring-1 ring-tertiary-fixed focus:ring-2 focus:ring-primary outline-none" id="mat-expiry" type="date"/></div>
+</div>
+<p class="hidden text-error font-body-md" id="mat-error"></p>
+<button class="w-full py-3 bg-primary text-on-primary font-label-md rounded-full shadow-md hover:shadow-lg transition-all" type="submit">儲存</button>
+</form>
+</div>
+</div>
+<!-- 採購入庫 Modal -->
+<div class="hidden fixed inset-0 z-[100] bg-inverse-surface/40 backdrop-blur-sm items-center justify-center p-md" id="buy-modal">
+<div class="bg-surface rounded-2xl shadow-2xl max-w-sm w-full p-lg space-y-md">
+<div class="flex justify-between items-start">
+<h2 class="font-headline-md text-headline-md text-on-surface">採購入庫</h2>
+<button class="text-on-surface-variant hover:text-error p-1" onclick="closeBuyModal()"><span class="material-symbols-outlined">close</span></button>
+</div>
+<p class="font-body-md text-on-surface-variant" id="buy-name"></p>
+<form class="space-y-sm" id="buy-form">
+<input id="buy-id" type="hidden"/>
+<div><label class="font-label-md text-on-surface block mb-1">採購數量 *</label>
+<input class="w-full bg-surface-container-low px-4 py-3 rounded-lg ring-1 ring-tertiary-fixed focus:ring-2 focus:ring-primary outline-none" id="buy-qty" min="0.01" required step="0.01" type="number"/></div>
+<div><label class="font-label-md text-on-surface block mb-1">本次進價 (單位成本,留空沿用)</label>
+<input class="w-full bg-surface-container-low px-4 py-3 rounded-lg ring-1 ring-tertiary-fixed focus:ring-2 focus:ring-primary outline-none" id="buy-cost" min="0" step="0.01" type="number"/></div>
+<p class="hidden text-error font-body-md" id="buy-error"></p>
+<button class="w-full py-3 bg-primary text-on-primary font-label-md rounded-full shadow-md hover:shadow-lg transition-all" type="submit">確認入庫</button>
+</form>
+</div>
+</div>
+<script>
+requireLogin();
+fillAdminName();
+
+let allMaterials = [];
+let currentFilter = "全部";
+
+const MAT_STATUS = {
+  shortage: '<span class="inline-flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-error animate-pulse"></span><span class="inline-flex items-center px-3 py-1 rounded-full bg-error-container text-on-error-container font-caption font-bold">嚴重短缺</span></span>',
+  low: '<span class="inline-flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-secondary"></span><span class="inline-flex items-center px-3 py-1 rounded-full bg-secondary-container text-on-secondary-container font-caption font-semibold">水位偏低</span></span>',
+  ok: '<span class="inline-flex items-center gap-2"><span class="w-2.5 h-2.5 rounded-full bg-tertiary"></span><span class="inline-flex items-center px-3 py-1 rounded-full bg-tertiary-container text-on-tertiary font-caption">庫存充足</span></span>',
+};
+
+function renderMaterials() {
+  const kw = document.getElementById("mat-search").value.trim();
+  let list = allMaterials;
+  if (currentFilter === "短缺") list = list.filter((m) => m.status !== "ok");
+  else if (currentFilter !== "全部") list = list.filter((m) => m.category === currentFilter);
+  if (kw) list = list.filter((m) => m.name.includes(kw));
+  const tbody = document.getElementById("mat-tbody");
+  tbody.innerHTML = list.map((m) => `
+    <tr class="hover:bg-surface-container-low/30 transition-colors group">
+      <td class="py-5 px-6">
+        <div>
+          <p class="font-semibold text-on-surface group-hover:text-primary transition-colors">${m.name}</p>
+          <p class="text-caption text-on-surface-variant">批號: ${m.batch_no || "-"} · ${m.category}${m.expiry_date ? " · 效期 " + m.expiry_date : ""}</p>
+        </div>
+      </td>
+      <td class="py-5 px-6 font-medium ${m.status === "shortage" ? "text-error" : m.status === "low" ? "text-secondary" : ""}">${m.stock} ${m.unit}</td>
+      <td class="py-5 px-6 font-medium text-on-surface">${m.demand} ${m.unit}</td>
+      <td class="py-5 px-6 font-medium text-on-surface-variant">NT$ ${m.unit_cost} / ${m.unit}</td>
+      <td class="py-5 px-6">${MAT_STATUS[m.status]}</td>
+      <td class="py-5 px-6 text-right whitespace-nowrap">
+        <button class="text-primary hover:text-on-primary-fixed-variant font-label-md underline underline-offset-4 decoration-primary/30 mr-md" onclick="openBuyModal(${m.id})">採購入庫</button>
+        <button class="text-on-surface-variant hover:text-primary font-label-md" onclick="openMaterialModal(${m.id})">編輯</button>
+      </td>
+    </tr>`).join("");
+  document.getElementById("mat-count").textContent = `共 ${list.length} 筆物料`;
+}
+
+async function loadMaterials() {
+  try {
+    const d = await adminFetch("/admin/materials");
+    allMaterials = d.materials;
+    document.getElementById("stat-total").textContent = d.stats.total;
+    document.getElementById("stat-shortage").textContent = d.stats.shortage;
+    document.getElementById("stat-expiring").textContent = d.stats.expiring;
+    renderMaterials();
+  } catch (err) { console.error(err); }
+}
+
+document.getElementById("mat-search").addEventListener("input", renderMaterials);
+document.querySelectorAll(".mat-filter").forEach((chip) => {
+  chip.addEventListener("click", () => {
+    currentFilter = chip.dataset.filter;
+    document.querySelectorAll(".mat-filter").forEach((c) => {
+      const active = c === chip;
+      c.className = "mat-filter px-4 py-1.5 rounded-full font-caption whitespace-nowrap cursor-pointer transition-colors " +
+        (active ? "bg-primary-fixed text-on-primary-fixed" : "bg-surface border border-outline-variant/30 text-on-surface-variant hover:bg-surface-container");
+    });
+    renderMaterials();
+  });
+});
+
+/* ---- 新增/編輯 ---- */
+function openMaterialModal(id) {
+  const m = allMaterials.find((x) => x.id === id);
+  document.getElementById("mat-modal-title").textContent = m ? "編輯材料" : "新增材料";
+  document.getElementById("mat-id").value = m ? m.id : "";
+  document.getElementById("mat-name").value = m ? m.name : "";
+  document.getElementById("mat-category").value = m ? m.category : "餡料";
+  document.getElementById("mat-batch").value = m ? m.batch_no : "";
+  document.getElementById("mat-unit").value = m ? m.unit : "kg";
+  document.getElementById("mat-stock").value = m ? m.stock : 0;
+  document.getElementById("mat-safety").value = m ? m.safety_stock : 0;
+  document.getElementById("mat-cost").value = m ? m.unit_cost : 0;
+  document.getElementById("mat-expiry").value = m && m.expiry_date ? m.expiry_date : "";
+  document.getElementById("mat-error").classList.add("hidden");
+  const modal = document.getElementById("mat-modal");
+  modal.classList.remove("hidden"); modal.classList.add("flex");
+}
+function closeMaterialModal() {
+  const modal = document.getElementById("mat-modal");
+  modal.classList.add("hidden"); modal.classList.remove("flex");
+}
+document.getElementById("mat-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const id = document.getElementById("mat-id").value;
+  const body = {
+    name: document.getElementById("mat-name").value,
+    category: document.getElementById("mat-category").value,
+    batch_no: document.getElementById("mat-batch").value,
+    unit: document.getElementById("mat-unit").value,
+    stock: Number(document.getElementById("mat-stock").value),
+    safety_stock: Number(document.getElementById("mat-safety").value),
+    unit_cost: Number(document.getElementById("mat-cost").value),
+    expiry_date: document.getElementById("mat-expiry").value || null,
+  };
+  try {
+    if (id) await adminFetch(`/admin/materials/${id}`, { method: "PATCH", body: JSON.stringify(body) });
+    else await adminFetch("/admin/materials", { method: "POST", body: JSON.stringify(body) });
+    closeMaterialModal();
+    loadMaterials();
+  } catch (err) {
+    const el = document.getElementById("mat-error");
+    el.textContent = err.message; el.classList.remove("hidden");
+  }
+});
+
+/* ---- 採購入庫 ---- */
+function openBuyModal(id) {
+  const m = allMaterials.find((x) => x.id === id);
+  if (!m) return;
+  document.getElementById("buy-id").value = id;
+  document.getElementById("buy-name").textContent = `${m.name} (現有 ${m.stock} ${m.unit},單位成本 NT$ ${m.unit_cost})`;
+  document.getElementById("buy-qty").value = "";
+  document.getElementById("buy-cost").value = "";
+  document.getElementById("buy-error").classList.add("hidden");
+  const modal = document.getElementById("buy-modal");
+  modal.classList.remove("hidden"); modal.classList.add("flex");
+}
+function closeBuyModal() {
+  const modal = document.getElementById("buy-modal");
+  modal.classList.add("hidden"); modal.classList.remove("flex");
+}
+document.getElementById("buy-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const id = document.getElementById("buy-id").value;
+  const body = { quantity: Number(document.getElementById("buy-qty").value) };
+  const cost = document.getElementById("buy-cost").value;
+  if (cost !== "") body.unit_cost = Number(cost);
+  try {
+    await adminFetch(`/admin/materials/${id}/purchase`, { method: "POST", body: JSON.stringify(body) });
+    closeBuyModal();
+    loadMaterials();
+  } catch (err) {
+    const el = document.getElementById("buy-error");
+    el.textContent = err.message; el.classList.remove("hidden");
+  }
+});
+
+["mat-modal", "buy-modal"].forEach((id) =>
+  document.getElementById(id).addEventListener("click", (e) => {
+    if (e.target === e.currentTarget) { e.currentTarget.classList.add("hidden"); e.currentTarget.classList.remove("flex"); }
+  }));
+
+loadMaterials();
+</script></body></html>

@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="zh-TW"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><title>用戶權限管理 | 美師傅後台</title><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{"colors":{"on-primary":"#ffffff","on-secondary":"#ffffff","on-background":"#30121a","inverse-surface":"#48262e","on-error-container":"#93000a","on-secondary-fixed":"#360c17","inverse-on-surface":"#ffecee","on-surface":"#30121a","surface-container-highest":"#ffd9df","on-tertiary":"#ffffff","tertiary-container":"#6d7772","surface-variant":"#ffd9df","surface-container-low":"#fff0f1","secondary-fixed":"#ffd9de","tertiary":"#545e5a","primary-fixed":"#fbdae3","on-secondary-fixed-variant":"#6b3741","primary":"#6e555d","on-tertiary-fixed":"#151d1a","tertiary-fixed-dim":"#bfc9c3","surface-tint":"#71585f","background":"#fff8f7","secondary":"#874e58","surface-dim":"#ffcdd7","outline":"#807477","error-container":"#ffdad6","on-surface-variant":"#4e4447","inverse-primary":"#debec7","surface-container":"#ffe8eb","on-primary-container":"#fffbff","primary-fixed-dim":"#debec7","surface":"#fff8f7","on-error":"#ffffff","on-primary-fixed":"#29161d","surface-container-high":"#ffe1e5","secondary-fixed-dim":"#fcb3be","on-tertiary-fixed-variant":"#3f4945","surface-container-lowest":"#ffffff","outline-variant":"#d1c3c6","error":"#ba1a1a","primary-container":"#886e75","secondary-container":"#ffb6c1","on-primary-fixed-variant":"#574148","on-secondary-container":"#7b444e","tertiary-fixed":"#dbe5df"},"borderRadius":{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},"spacing":{"md":"24px","margin-mobile":"20px","margin-desktop":"64px","gutter":"24px","xs":"4px","sm":"12px","xl":"80px","base":"8px","lg":"48px"},"fontFamily":{"display":["Playfair Display"],"body-lg":["Plus Jakarta Sans"],"headline-md":["Playfair Display"],"caption":["Plus Jakarta Sans"],"body-md":["Plus Jakarta Sans"],"label-md":["Plus Jakarta Sans"],"headline-lg-mobile":["Playfair Display"],"headline-lg":["Playfair Display"]},"fontSize":{"display":["48px",{"lineHeight":"1.2","letterSpacing":"-0.02em","fontWeight":"700"}],"body-lg":["18px",{"lineHeight":"1.6","fontWeight":"400"}],"headline-md":["24px",{"lineHeight":"1.4","fontWeight":"600"}],"caption":["12px",{"lineHeight":"1.4","fontWeight":"500"}],"body-md":["16px",{"lineHeight":"1.6","fontWeight":"400"}],"label-md":["14px",{"lineHeight":"1.4","letterSpacing":"0.05em","fontWeight":"600"}],"headline-lg-mobile":["28px",{"lineHeight":"1.3","fontWeight":"600"}],"headline-lg":["32px",{"lineHeight":"1.3","fontWeight":"600"}]}}}}</script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@100..900&family=Plus+Jakarta+Sans:wght@100..900&display=swap" rel="stylesheet"/>
+<script src="js/admin.js"></script></head><body class="bg-surface font-body-md text-on-surface"><aside class="fixed left-0 top-0 h-full w-72 bg-surface-container-low shadow-[4px_0_24px_rgba(157,129,137,0.05)] z-50 flex flex-col pt-md pb-md"><div class="px-md mb-lg flex items-center gap-sm"><img alt="美師傅 Logo" class="h-8 w-auto object-contain" src="../assets/logo.png"/><span class="font-headline-md text-headline-md text-primary">美師傅</span></div><nav class="flex-1 px-sm space-y-base"><a class="flex items-center px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all group" href="dashboard.html"><span class="material-symbols-outlined mr-sm text-secondary">dashboard</span><span class="font-label-md text-label-md">儀表板</span></a><a class="flex items-center px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all group" href="orders.html"><span class="material-symbols-outlined mr-sm text-secondary">shopping_bag</span><span class="font-label-md text-label-md">訂單管理</span></a><a class="flex items-center px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all group" href="products.html"><span class="material-symbols-outlined mr-sm text-secondary">bakery_dining</span><span class="font-label-md text-label-md">產品管理</span></a><a class="flex items-center px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all group" href="materials.html"><span class="material-symbols-outlined mr-sm text-secondary">inventory_2</span><span class="font-label-md text-label-md">材料管理</span></a><a class="flex items-center px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all group" href="finance.html"><span class="material-symbols-outlined mr-sm text-secondary">payments</span><span class="font-label-md text-label-md">財務管理</span></a><a aria-current="page" class="flex items-center px-md py-sm rounded-lg transition-all group bg-secondary-container text-on-secondary-container font-semibold shadow-sm" href="users.html"><span class="material-symbols-outlined mr-sm text-secondary">admin_panel_settings</span><span class="font-label-md text-label-md">權限管理</span></a></nav><div class="px-sm"><button class="w-full flex items-center px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" onclick="logout()"><span class="material-symbols-outlined mr-sm text-secondary">logout</span><span class="font-label-md text-label-md">登出</span></button></div></aside><div class="pl-72"><header class="fixed top-0 left-72 right-0 h-20 bg-surface/80 backdrop-blur-xl z-40 flex items-center justify-between px-lg shadow-[0_1px_8px_rgba(0,0,0,0.03)]"><div class="flex items-center gap-xs text-on-surface-variant text-caption"><span>管理系統</span><span class="material-symbols-outlined text-[16px]">chevron_right</span><span class="text-on-surface font-semibold">User Permissions</span></div><div class="flex items-center gap-sm pl-md border-l border-outline-variant"><div class="text-right"><p class="font-label-md text-label-md text-on-surface" id="admin-name">管理員</p><p class="text-caption text-on-surface-variant">系統管理員</p></div><div class="w-10 h-10 rounded-full bg-primary flex items-center justify-center shadow-md"><span class="material-symbols-outlined text-on-primary text-[22px]">person</span></div></div></header><main class="relative pt-20 bg-surface min-h-screen"><div class="flex flex-col w-full p-margin-mobile md:p-margin-desktop bg-surface min-h-screen font-body-md text-on-surface">
+<!-- Header -->
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-md mb-lg">
+<div>
+<h1 class="font-display text-display text-primary mb-xs">用戶權限管理</h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant max-w-2xl">
+        管理系統存取權限,設定各級管理員角色與狀態。請謹慎分配系統操作權限以確保資料安全。
+      </p>
+</div>
+<button class="flex items-center justify-center gap-xs bg-primary text-on-primary px-lg py-sm rounded-full font-label-md hover:scale-105 hover:shadow-[0_4px_12px_rgba(157,129,137,0.15)] transition-all shrink-0" onclick="openUserModal()">
+<span class="material-symbols-outlined text-[20px]">person_add</span>
+      新增管理員
+    </button>
+</div>
+<p class="hidden mb-md p-md bg-error-container text-on-error-container rounded-xl font-body-md" id="perm-error"></p>
+<!-- Stats -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-md mb-xl">
+<div class="bg-surface-container-lowest p-md rounded-xl shadow-[0_4px_24px_rgba(157,129,137,0.06)] border border-outline-variant/30 flex items-center gap-md">
+<div class="w-12 h-12 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container">
+<span class="material-symbols-outlined">shield_person</span>
+</div>
+<div>
+<p class="text-caption text-on-surface-variant mb-1">系統管理員總數</p>
+<p class="font-headline-lg text-headline-lg text-on-surface" id="stat-total">--</p>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-md rounded-xl shadow-[0_4px_24px_rgba(157,129,137,0.06)] border border-outline-variant/30 flex items-center gap-md">
+<div class="w-12 h-12 rounded-full bg-secondary-container flex items-center justify-center text-on-secondary-container">
+<span class="material-symbols-outlined">check_circle</span>
+</div>
+<div>
+<p class="text-caption text-on-surface-variant mb-1">啟用中帳號</p>
+<p class="font-headline-lg text-headline-lg text-on-surface" id="stat-active">--</p>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-md rounded-xl shadow-[0_4px_24px_rgba(157,129,137,0.06)] border border-outline-variant/30 flex items-center gap-md">
+<div class="w-12 h-12 rounded-full bg-error-container flex items-center justify-center text-on-error-container">
+<span class="material-symbols-outlined">block</span>
+</div>
+<div>
+<p class="text-caption text-on-surface-variant mb-1">停用中帳號</p>
+<p class="font-headline-lg text-headline-lg text-on-surface" id="stat-disabled">--</p>
+</div>
+</div>
+</div>
+<!-- Role filter -->
+<div class="flex gap-sm mb-md overflow-x-auto" id="role-filters">
+<button class="role-filter px-md py-xs rounded-full bg-secondary-container text-on-secondary-container font-label-md whitespace-nowrap" data-role="">全部角色</button>
+<button class="role-filter px-md py-xs rounded-full bg-transparent border border-outline-variant text-on-surface-variant hover:bg-surface-container-high transition-colors font-label-md whitespace-nowrap" data-role="super">超級管理員</button>
+<button class="role-filter px-md py-xs rounded-full bg-transparent border border-outline-variant text-on-surface-variant hover:bg-surface-container-high transition-colors font-label-md whitespace-nowrap" data-role="order">訂單管理員</button>
+<button class="role-filter px-md py-xs rounded-full bg-transparent border border-outline-variant text-on-surface-variant hover:bg-surface-container-high transition-colors font-label-md whitespace-nowrap" data-role="finance">財務管理員</button>
+<button class="role-filter px-md py-xs rounded-full bg-transparent border border-outline-variant text-on-surface-variant hover:bg-surface-container-high transition-colors font-label-md whitespace-nowrap" data-role="staff">一般管理員</button>
+</div>
+<!-- Table -->
+<div class="bg-surface-container-lowest rounded-2xl shadow-[0_8px_32px_rgba(157,129,137,0.08)] overflow-hidden">
+<div class="overflow-x-auto w-full">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container text-on-surface font-label-md border-b border-outline-variant/50">
+<th class="py-sm px-md font-semibold whitespace-nowrap">用戶姓名</th>
+<th class="py-sm px-md font-semibold whitespace-nowrap">帳號 / 電子郵件</th>
+<th class="py-sm px-md font-semibold whitespace-nowrap">角色</th>
+<th class="py-sm px-md font-semibold whitespace-nowrap">狀態</th>
+<th class="py-sm px-md font-semibold whitespace-nowrap">最後登入時間</th>
+<th class="py-sm px-md font-semibold text-right whitespace-nowrap">操作</th>
+</tr>
+</thead>
+<tbody class="text-body-md text-on-surface-variant divide-y divide-outline-variant/30" id="user-tbody"></tbody>
+</table>
+</div>
+</div>
+</div></main></div>
+<!-- 新增/編輯用戶 Modal -->
+<div class="hidden fixed inset-0 z-[100] bg-inverse-surface/40 backdrop-blur-sm items-center justify-center p-md" id="user-modal">
+<div class="bg-surface rounded-2xl shadow-2xl max-w-md w-full max-h-[85vh] overflow-y-auto p-lg space-y-md">
+<div class="flex justify-between items-start">
+<h2 class="font-headline-md text-headline-md text-on-surface" id="user-modal-title">新增管理員</h2>
+<button class="text-on-surface-variant hover:text-error p-1" onclick="closeUserModal()"><span class="material-symbols-outlined">close</span></button>
+</div>
+<form class="space-y-sm" id="user-form">
+<input id="user-id" type="hidden"/>
+<div><label class="font-label-md text-on-surface block mb-1">登入帳號 *</label>
+<input class="w-full bg-surface-container-low px-4 py-3 rounded-lg ring-1 ring-tertiary-fixed focus:ring-2 focus:ring-primary outline-none disabled:opacity-60" id="user-username" required type="text"/></div>
+<div><label class="font-label-md text-on-surface block mb-1">顯示名稱</label>
+<input class="w-full bg-surface-container-low px-4 py-3 rounded-lg ring-1 ring-tertiary-fixed focus:ring-2 focus:ring-primary outline-none" id="user-display" type="text"/></div>
+<div><label class="font-label-md text-on-surface block mb-1">電子郵件</label>
+<input class="w-full bg-surface-container-low px-4 py-3 rounded-lg ring-1 ring-tertiary-fixed focus:ring-2 focus:ring-primary outline-none" id="user-email" type="email"/></div>
+<div class="grid grid-cols-2 gap-sm">
+<div><label class="font-label-md text-on-surface block mb-1">角色</label>
+<select class="w-full bg-surface-container-low px-4 py-3 rounded-lg ring-1 ring-tertiary-fixed focus:ring-2 focus:ring-primary outline-none" id="user-role">
+<option value="staff">一般管理員</option>
+<option value="order">訂單管理員</option>
+<option value="finance">財務管理員</option>
+<option value="super">超級管理員</option>
+</select></div>
+<div><label class="font-label-md text-on-surface block mb-1">狀態</label>
+<select class="w-full bg-surface-container-low px-4 py-3 rounded-lg ring-1 ring-tertiary-fixed focus:ring-2 focus:ring-primary outline-none" id="user-active">
+<option value="1">啟用</option>
+<option value="0">停用</option>
+</select></div>
+</div>
+<div><label class="font-label-md text-on-surface block mb-1" id="user-pw-label">密碼 * (至少 8 碼)</label>
+<input class="w-full bg-surface-container-low px-4 py-3 rounded-lg ring-1 ring-tertiary-fixed focus:ring-2 focus:ring-primary outline-none" id="user-password" type="password"/></div>
+<p class="hidden text-error font-body-md" id="user-error"></p>
+<button class="w-full py-3 bg-primary text-on-primary font-label-md rounded-full shadow-md hover:shadow-lg transition-all" type="submit">儲存</button>
+</form>
+</div>
+</div>
+<script>
+requireLogin();
+fillAdminName();
+
+let allUsers = [];
+let roleFilter = "";
+
+const ROLE_BADGE = {
+  super: '<span class="inline-flex items-center px-2 py-1 rounded-full bg-primary-container/30 text-on-primary-container text-caption font-medium gap-1"><span class="w-1.5 h-1.5 rounded-full bg-primary"></span>超級管理員</span>',
+  order: '<span class="inline-flex items-center px-2 py-1 rounded-full bg-surface-variant text-on-surface-variant text-caption font-medium gap-1"><span class="w-1.5 h-1.5 rounded-full bg-outline"></span>訂單管理員</span>',
+  finance: '<span class="inline-flex items-center px-2 py-1 rounded-full bg-surface-variant text-on-surface-variant text-caption font-medium gap-1"><span class="w-1.5 h-1.5 rounded-full bg-outline"></span>財務管理員</span>',
+  staff: '<span class="inline-flex items-center px-2 py-1 rounded-full bg-surface-variant text-on-surface-variant text-caption font-medium gap-1"><span class="w-1.5 h-1.5 rounded-full bg-outline"></span>一般管理員</span>',
+};
+
+function renderUsers() {
+  const list = roleFilter ? allUsers.filter((u) => u.role === roleFilter) : allUsers;
+  document.getElementById("user-tbody").innerHTML = list.map((u) => `
+    <tr class="hover:bg-surface-container-low/50 transition-colors group">
+      <td class="py-sm px-md">
+        <div class="flex items-center gap-sm">
+          <div class="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-caption">${(u.display_name || u.username).charAt(0)}</div>
+          <span class="font-medium text-on-surface">${u.display_name || u.username}</span>
+        </div>
+      </td>
+      <td class="py-sm px-md">${u.username}${u.email ? "<br><span class='text-caption'>" + u.email + "</span>" : ""}</td>
+      <td class="py-sm px-md">${ROLE_BADGE[u.role] || u.role}</td>
+      <td class="py-sm px-md">${u.is_active
+        ? '<span class="inline-flex items-center px-2 py-1 rounded-full bg-secondary-container/50 text-on-secondary-container text-caption font-medium">啟用</span>'
+        : '<span class="inline-flex items-center px-2 py-1 rounded-full bg-error-container/50 text-on-error-container text-caption font-medium">停用</span>'}</td>
+      <td class="py-sm px-md text-caption">${u.last_login || "-"}</td>
+      <td class="py-sm px-md text-right">
+        <button class="w-8 h-8 rounded-full inline-flex items-center justify-center text-primary hover:bg-primary-container/50 transition-colors" onclick="openUserModal(${u.id})" title="編輯權限">
+          <span class="material-symbols-outlined text-[18px]">edit</span>
+        </button>
+      </td>
+    </tr>`).join("");
+}
+
+async function loadUsers() {
+  try {
+    const d = await adminFetch("/admin/users");
+    allUsers = d.users;
+    document.getElementById("stat-total").textContent = d.stats.total;
+    document.getElementById("stat-active").textContent = d.stats.active;
+    document.getElementById("stat-disabled").textContent = d.stats.disabled;
+    renderUsers();
+  } catch (err) {
+    const el = document.getElementById("perm-error");
+    el.textContent = "無法載入用戶列表:" + err.message + "(僅超級管理員可存取此頁面)";
+    el.classList.remove("hidden");
+  }
+}
+
+document.querySelectorAll(".role-filter").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    roleFilter = btn.dataset.role;
+    document.querySelectorAll(".role-filter").forEach((b) => {
+      const active = b === btn;
+      b.className = "role-filter px-md py-xs rounded-full font-label-md whitespace-nowrap transition-colors " +
+        (active ? "bg-secondary-container text-on-secondary-container" : "bg-transparent border border-outline-variant text-on-surface-variant hover:bg-surface-container-high");
+    });
+    renderUsers();
+  });
+});
+
+function openUserModal(id) {
+  const u = allUsers.find((x) => x.id === id);
+  document.getElementById("user-modal-title").textContent = u ? "編輯管理員" : "新增管理員";
+  document.getElementById("user-id").value = u ? u.id : "";
+  const usernameEl = document.getElementById("user-username");
+  usernameEl.value = u ? u.username : "";
+  usernameEl.disabled = !!u;
+  document.getElementById("user-display").value = u ? u.display_name : "";
+  document.getElementById("user-email").value = u ? (u.email || "") : "";
+  document.getElementById("user-role").value = u ? u.role : "staff";
+  document.getElementById("user-active").value = u ? String(u.is_active ? 1 : 0) : "1";
+  document.getElementById("user-password").value = "";
+  document.getElementById("user-pw-label").textContent = u ? "重設密碼 (留空不變更)" : "密碼 * (至少 8 碼)";
+  document.getElementById("user-error").classList.add("hidden");
+  const modal = document.getElementById("user-modal");
+  modal.classList.remove("hidden"); modal.classList.add("flex");
+}
+function closeUserModal() {
+  const modal = document.getElementById("user-modal");
+  modal.classList.add("hidden"); modal.classList.remove("flex");
+}
+
+document.getElementById("user-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const id = document.getElementById("user-id").value;
+  const body = {
+    display_name: document.getElementById("user-display").value,
+    email: document.getElementById("user-email").value,
+    role: document.getElementById("user-role").value,
+    is_active: document.getElementById("user-active").value === "1",
+  };
+  const pw = document.getElementById("user-password").value;
+  try {
+    if (id) {
+      if (pw) body.password = pw;
+      await adminFetch(`/admin/users/${id}`, { method: "PATCH", body: JSON.stringify(body) });
+    } else {
+      body.username = document.getElementById("user-username").value;
+      body.password = pw;
+      await adminFetch("/admin/users", { method: "POST", body: JSON.stringify(body) });
+    }
+    closeUserModal();
+    loadUsers();
+  } catch (err) {
+    const el = document.getElementById("user-error");
+    el.textContent = err.message; el.classList.remove("hidden");
+  }
+});
+
+document.getElementById("user-modal").addEventListener("click", (e) => {
+  if (e.target === e.currentTarget) closeUserModal();
+});
+
+loadUsers();
+</script></body></html>

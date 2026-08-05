@@ -1,0 +1,34 @@
+"""集中管理環境設定,連線資訊一律從專案根目錄的 .env 讀取。"""
+import os
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+# .env 位於 website 專案根目錄 (backend 的上一層)
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
+
+DB_HOST = os.getenv("DB_HOST", "127.0.0.1")
+DB_PORT = int(os.getenv("DB_port", os.getenv("DB_PORT", "3306")))
+DB_USER = os.getenv("DB_AC", "meishifu")
+DB_PASSWORD = os.getenv("DB_PW", "")
+DB_NAME = os.getenv("DB_NAME", "meishifu")
+
+# JWT 簽章金鑰 (正式環境請改由環境變數提供)
+SECRET_KEY = os.getenv("SECRET_KEY", "meishifu-dev-secret-change-me")
+JWT_EXPIRE_HOURS = 8
+
+# 金流公司對接設定 (預留;正式串接時填入金流商提供的參數)
+PAYMENT_GATEWAY = {
+    "provider": os.getenv("PAY_PROVIDER", "TBD"),          # 例: ecpay / newebpay
+    "merchant_id": os.getenv("PAY_MERCHANT_ID", ""),
+    "hash_key": os.getenv("PAY_HASH_KEY", ""),
+    "hash_iv": os.getenv("PAY_HASH_IV", ""),
+    "api_url": os.getenv("PAY_API_URL", ""),
+    # 金流商付款完成後回呼本後端的網址
+    "notify_url": os.getenv("PAY_NOTIFY_URL", "http://localhost:5001/api/payment/notify"),
+    # 付款完成後導回前端的網址
+    "return_url": os.getenv("PAY_RETURN_URL", "http://localhost:5500/frontend/cart.html"),
+}
+
+FREE_SHIPPING_THRESHOLD = 2000
+SHIPPING_FEE = 120
