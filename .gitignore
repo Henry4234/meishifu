@@ -1,1 +1,7 @@
 /stitch_meishifu_official_bakery_site.zip
+
+#環境檔案
+.env
+
+#tamplates
+*.zip
