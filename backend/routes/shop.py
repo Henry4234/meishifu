@@ -1,5 +1,6 @@
-"""前台公開 API:商品查詢、建立訂單。
+"""前台公開 API:禮盒查詢、建立訂單。
 
+販售單位是「禮盒」(package),不是單一產品 (products 僅供配方與成本計算)。
 價格一律以資料庫為準重新計算,不信任前端傳來的金額。
 """
 import random
@@ -14,27 +15,45 @@ from routes.payment import build_payment_payload
 
 shop_bp = Blueprint("shop", __name__)
 
+PACKAGE_FIELDS = "id, name, description, spec, category, price, image, tag"
 
-@shop_bp.get("/products")
-def list_products():
+
+@shop_bp.get("/packages")
+def list_packages():
     category = request.args.get("category")
-    sql = "SELECT id, name, description, spec, category, price, image, tag FROM products WHERE is_active = 1"
+    sql = f"SELECT {PACKAGE_FIELDS} FROM package WHERE is_active = 1"
     args = []
     if category and category != "全部商品":
         sql += " AND category = %s"
         args.append(category)
     sql += " ORDER BY id"
-    return jsonify({"products": db.query(sql, args)})
+    packages = db.query(sql, args)
+
+    # 附上禮盒內容物 (顧客可看到盒內品項)
+    contents = db.query(
+        "SELECT m.package_id, p.name, m.quantity FROM package_products_map m"
+        " JOIN products p ON p.id = m.product_id ORDER BY m.id")
+    by_pkg = {}
+    for c in contents:
+        by_pkg.setdefault(c["package_id"], []).append(
+            {"name": c["name"], "quantity": float(c["quantity"])})
+    for p in packages:
+        p["items"] = by_pkg.get(p["id"], [])
+    return jsonify({"packages": packages})
 
 
-@shop_bp.get("/products/<int:pid>")
-def get_product(pid):
+@shop_bp.get("/packages/<int:pkg_id>")
+def get_package(pkg_id):
     row = db.query_one(
-        "SELECT id, name, description, spec, category, price, image, tag FROM products WHERE id = %s AND is_active = 1",
-        (pid,),
-    )
+        f"SELECT {PACKAGE_FIELDS} FROM package WHERE id = %s AND is_active = 1", (pkg_id,))
     if not row:
-        return jsonify({"error": "product not found"}), 404
+        return jsonify({"error": "package not found"}), 404
+    row["items"] = [
+        {"name": c["name"], "quantity": float(c["quantity"])}
+        for c in db.query(
+            "SELECT p.name, m.quantity FROM package_products_map m"
+            " JOIN products p ON p.id = m.product_id WHERE m.package_id = %s", (pkg_id,))
+    ]
     return jsonify(row)
 
 
@@ -70,20 +89,19 @@ def create_order():
     subtotal = 0
     for item in items:
         try:
-            pid = int(item.get("product_id"))
+            pkg_id = int(item.get("package_id"))
             qty = int(item.get("quantity"))
         except (TypeError, ValueError):
             return jsonify({"error": "商品格式不正確"}), 400
         if qty <= 0 or qty > 99:
             return jsonify({"error": "商品數量不正確"}), 400
-        product = db.query_one(
-            "SELECT id, name, price FROM products WHERE id = %s AND is_active = 1", (pid,)
-        )
-        if not product:
-            return jsonify({"error": f"商品 {pid} 不存在或已下架"}), 400
-        line_total = product["price"] * qty
+        pkg = db.query_one(
+            "SELECT id, name, price FROM package WHERE id = %s AND is_active = 1", (pkg_id,))
+        if not pkg:
+            return jsonify({"error": f"禮盒 {pkg_id} 不存在或已下架"}), 400
+        line_total = pkg["price"] * qty
         subtotal += line_total
-        order_items.append((product["id"], product["name"], product["price"], qty, line_total))
+        order_items.append((pkg["id"], pkg["name"], pkg["price"], qty, line_total))
 
     shipping_fee = 0
     if shipping_method == "delivery" and subtotal < config.FREE_SHIPPING_THRESHOLD:
@@ -107,7 +125,7 @@ def create_order():
             order_id = cur.lastrowid
             cur.executemany(
                 """INSERT INTO order_items
-                   (order_id, product_id, product_name, unit_price, quantity, subtotal)
+                   (order_id, package_id, package_name, unit_price, quantity, subtotal)
                    VALUES (%s,%s,%s,%s,%s,%s)""",
                 [(order_id, *row) for row in order_items],
             )
@@ -144,7 +162,7 @@ def get_order(order_no):
         return jsonify({"error": "查無訂單"}), 404
     order["created_at"] = order["created_at"].strftime("%Y-%m-%d %H:%M")
     order["items"] = db.query(
-        "SELECT oi.product_name, oi.unit_price, oi.quantity, oi.subtotal FROM order_items oi"
+        "SELECT oi.package_name, oi.unit_price, oi.quantity, oi.subtotal FROM order_items oi"
         " JOIN orders o ON o.id = oi.order_id WHERE o.order_no = %s",
         (order_no,),
     )

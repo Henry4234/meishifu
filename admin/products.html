@@ -2,81 +2,167 @@
 <html lang="zh-TW"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><title>產品管理 | 美師傅後台</title><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={darkMode:"class",theme:{extend:{"colors":{"on-primary":"#ffffff","on-secondary":"#ffffff","on-background":"#30121a","inverse-surface":"#48262e","on-error-container":"#93000a","on-secondary-fixed":"#360c17","inverse-on-surface":"#ffecee","on-surface":"#30121a","surface-container-highest":"#ffd9df","on-tertiary":"#ffffff","tertiary-container":"#6d7772","surface-variant":"#ffd9df","surface-container-low":"#fff0f1","secondary-fixed":"#ffd9de","tertiary":"#545e5a","primary-fixed":"#fbdae3","on-secondary-fixed-variant":"#6b3741","primary":"#6e555d","on-tertiary-fixed":"#151d1a","tertiary-fixed-dim":"#bfc9c3","surface-tint":"#71585f","background":"#fff8f7","secondary":"#874e58","surface-dim":"#ffcdd7","outline":"#807477","error-container":"#ffdad6","on-surface-variant":"#4e4447","inverse-primary":"#debec7","surface-container":"#ffe8eb","on-primary-container":"#fffbff","primary-fixed-dim":"#debec7","surface":"#fff8f7","on-error":"#ffffff","on-primary-fixed":"#29161d","surface-container-high":"#ffe1e5","secondary-fixed-dim":"#fcb3be","on-tertiary-fixed-variant":"#3f4945","surface-container-lowest":"#ffffff","outline-variant":"#d1c3c6","error":"#ba1a1a","primary-container":"#886e75","secondary-container":"#ffb6c1","on-primary-fixed-variant":"#574148","on-secondary-container":"#7b444e","tertiary-fixed":"#dbe5df"},"borderRadius":{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},"spacing":{"md":"24px","margin-mobile":"20px","margin-desktop":"64px","gutter":"24px","xs":"4px","sm":"12px","xl":"80px","base":"8px","lg":"48px"},"fontFamily":{"display":["Playfair Display"],"body-lg":["Plus Jakarta Sans"],"headline-md":["Playfair Display"],"caption":["Plus Jakarta Sans"],"body-md":["Plus Jakarta Sans"],"label-md":["Plus Jakarta Sans"],"headline-lg-mobile":["Playfair Display"],"headline-lg":["Playfair Display"]},"fontSize":{"display":["48px",{"lineHeight":"1.2","letterSpacing":"-0.02em","fontWeight":"700"}],"body-lg":["18px",{"lineHeight":"1.6","fontWeight":"400"}],"headline-md":["24px",{"lineHeight":"1.4","fontWeight":"600"}],"caption":["12px",{"lineHeight":"1.4","fontWeight":"500"}],"body-md":["16px",{"lineHeight":"1.6","fontWeight":"400"}],"label-md":["14px",{"lineHeight":"1.4","letterSpacing":"0.05em","fontWeight":"600"}],"headline-lg-mobile":["28px",{"lineHeight":"1.3","fontWeight":"600"}],"headline-lg":["32px",{"lineHeight":"1.3","fontWeight":"600"}]}}}}</script>
 <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@100..900&family=Plus+Jakarta+Sans:wght@100..900&display=swap" rel="stylesheet"/>
-<script src="js/admin.js"></script></head><body class="bg-surface font-body-md text-on-surface"><aside class="fixed left-0 top-0 h-full w-72 bg-surface-container-low shadow-[4px_0_24px_rgba(157,129,137,0.05)] z-50 flex flex-col pt-md pb-md"><div class="px-md mb-lg flex items-center gap-sm"><img alt="美師傅 Logo" class="h-8 w-auto object-contain" src="../assets/logo.png"/><span class="font-headline-md text-headline-md text-primary">美師傅</span></div><nav class="flex-1 px-sm space-y-base"><a class="flex items-center px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all group" href="dashboard.html"><span class="material-symbols-outlined mr-sm text-secondary">dashboard</span><span class="font-label-md text-label-md">儀表板</span></a><a class="flex items-center px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all group" href="orders.html"><span class="material-symbols-outlined mr-sm text-secondary">shopping_bag</span><span class="font-label-md text-label-md">訂單管理</span></a><a aria-current="page" class="flex items-center px-md py-sm rounded-lg transition-all group bg-secondary-container text-on-secondary-container font-semibold shadow-sm" href="products.html"><span class="material-symbols-outlined mr-sm text-secondary">bakery_dining</span><span class="font-label-md text-label-md">產品管理</span></a><a class="flex items-center px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all group" href="materials.html"><span class="material-symbols-outlined mr-sm text-secondary">inventory_2</span><span class="font-label-md text-label-md">材料管理</span></a><a class="flex items-center px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all group" href="finance.html"><span class="material-symbols-outlined mr-sm text-secondary">payments</span><span class="font-label-md text-label-md">財務管理</span></a><a class="flex items-center px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all group" href="users.html"><span class="material-symbols-outlined mr-sm text-secondary">admin_panel_settings</span><span class="font-label-md text-label-md">權限管理</span></a></nav><div class="px-sm"><button class="w-full flex items-center px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" onclick="logout()"><span class="material-symbols-outlined mr-sm text-secondary">logout</span><span class="font-label-md text-label-md">登出</span></button></div></aside><div class="pl-72"><header class="fixed top-0 left-72 right-0 h-20 bg-surface/80 backdrop-blur-xl z-40 flex items-center justify-between px-lg shadow-[0_1px_8px_rgba(0,0,0,0.03)]"><div class="flex items-center gap-xs text-on-surface-variant text-caption"><span>管理系統</span><span class="material-symbols-outlined text-[16px]">chevron_right</span><span class="text-on-surface font-semibold">Product Management</span></div><div class="flex items-center gap-sm pl-md border-l border-outline-variant"><div class="text-right"><p class="font-label-md text-label-md text-on-surface" id="admin-name">管理員</p><p class="text-caption text-on-surface-variant">系統管理員</p></div><div class="w-10 h-10 rounded-full bg-primary flex items-center justify-center shadow-md"><span class="material-symbols-outlined text-on-primary text-[22px]">person</span></div></div></header><main class="relative pt-20 bg-surface min-h-screen"><div class="flex flex-col w-full h-full p-margin-mobile md:p-margin-desktop bg-surface relative overflow-hidden">
+<script src="js/admin.js"></script>
+<script defer src="js/admin-anim.js"></script></head><body class="bg-surface font-body-md text-on-surface"><aside class="fixed left-0 top-0 h-full w-72 bg-surface-container-low shadow-[4px_0_24px_rgba(157,129,137,0.05)] z-50 flex flex-col pt-md pb-md"><div class="px-md mb-lg flex items-center gap-sm"><img alt="美師傅 Logo" class="h-8 w-auto object-contain" src="../assets/logo.png"/><span class="font-headline-md text-headline-md text-primary">美師傅</span></div><nav class="flex-1 px-sm space-y-base"><a class="flex items-center px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all group" href="dashboard.html"><span class="material-symbols-outlined mr-sm text-secondary">dashboard</span><span class="font-label-md text-label-md">儀表板</span></a><a class="flex items-center px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all group" href="orders.html"><span class="material-symbols-outlined mr-sm text-secondary">shopping_bag</span><span class="font-label-md text-label-md">訂單管理</span></a><a aria-current="page" class="flex items-center px-md py-sm rounded-lg transition-all group bg-secondary-container text-on-secondary-container font-semibold shadow-sm" href="products.html"><span class="material-symbols-outlined mr-sm text-secondary">bakery_dining</span><span class="font-label-md text-label-md">產品管理</span></a><a class="flex items-center px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all group" href="materials.html"><span class="material-symbols-outlined mr-sm text-secondary">inventory_2</span><span class="font-label-md text-label-md">材料管理</span></a><a class="flex items-center px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all group" href="finance.html"><span class="material-symbols-outlined mr-sm text-secondary">payments</span><span class="font-label-md text-label-md">財務管理</span></a><a class="flex items-center px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all group" href="users.html"><span class="material-symbols-outlined mr-sm text-secondary">admin_panel_settings</span><span class="font-label-md text-label-md">權限管理</span></a></nav><div class="px-sm"><button class="w-full flex items-center px-md py-sm rounded-lg text-on-surface-variant hover:bg-surface-container-high hover:text-on-surface transition-all" onclick="logout()"><span class="material-symbols-outlined mr-sm text-secondary">logout</span><span class="font-label-md text-label-md">登出</span></button></div></aside><div class="pl-72"><header class="fixed top-0 left-72 right-0 h-20 bg-surface/80 backdrop-blur-xl z-40 flex items-center justify-between px-lg shadow-[0_1px_8px_rgba(0,0,0,0.03)]"><div class="flex items-center gap-xs text-on-surface-variant text-caption"><span>管理系統</span><span class="material-symbols-outlined text-[16px]">chevron_right</span><span class="text-on-surface font-semibold">Product Management</span></div><div class="flex items-center gap-sm pl-md border-l border-outline-variant"><div class="text-right"><p class="font-label-md text-label-md text-on-surface" id="admin-name">管理員</p><p class="text-caption text-on-surface-variant">系統管理員</p></div><div class="w-10 h-10 rounded-full bg-primary flex items-center justify-center shadow-md"><span class="material-symbols-outlined text-on-primary text-[22px]">person</span></div></div></header><main class="relative pt-20 bg-surface min-h-screen"><div class="flex flex-col w-full h-full p-margin-mobile md:p-margin-desktop bg-surface relative overflow-hidden">
 <div class="absolute top-0 right-0 w-[500px] h-[500px] bg-primary-fixed opacity-[0.12] blur-[120px] rounded-full pointer-events-none -mt-32 -mr-32"></div>
 <!-- Header -->
-<div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-xl relative z-10 gap-md">
+<div class="flex flex-col md:flex-row justify-between items-start md:items-end mb-md relative z-10 gap-md">
 <div class="flex flex-col gap-xs max-w-2xl">
 <h1 class="font-display text-display text-on-surface tracking-tight">產品管理</h1>
 <p class="font-body-lg text-body-lg text-on-surface-variant leading-relaxed">
-        新增商品與商品照片,管理售價與上下架狀態。上架中的商品會即時顯示於前台「精選商品」頁面。
+        販售單位為「禮盒」。禮盒由單一產品組成,單一產品再對應材料配方,系統據此逐層計算成本與毛利。
       </p>
 </div>
-<button class="flex items-center gap-2 px-6 py-3 rounded-full bg-primary text-on-primary hover:-translate-y-0.5 transition-all duration-300 shadow-sm hover:shadow-md font-label-md shrink-0" onclick="openProductModal()">
+<button class="flex items-center gap-2 px-6 py-3 rounded-full bg-primary text-on-primary hover:-translate-y-0.5 transition-all duration-300 shadow-sm hover:shadow-md font-label-md shrink-0" id="add-btn">
 <span class="material-symbols-outlined text-[20px]">add_photo_alternate</span>
-<span>新增產品</span>
+<span id="add-btn-label">新增禮盒</span>
 </button>
 </div>
-<!-- Product Grid -->
-<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-md relative z-10" id="prod-grid">
+<!-- Tabs -->
+<div class="flex gap-sm mb-lg relative z-10">
+<button class="tab-btn px-lg py-sm rounded-full bg-primary text-on-primary font-label-md shadow-md shadow-primary/20" data-tab="package">
+<span class="material-symbols-outlined text-[18px] align-middle mr-1">redeem</span>禮盒 (販售單位)
+</button>
+<button class="tab-btn px-lg py-sm rounded-full bg-surface-container text-on-surface-variant hover:bg-surface-container-high font-label-md transition-colors" data-tab="product">
+<span class="material-symbols-outlined text-[18px] align-middle mr-1">cookie</span>單一產品與配方
+</button>
+</div>
+<!-- 禮盒列表 -->
+<div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-md relative z-10" id="pkg-grid">
 <p class="text-on-surface-variant col-span-full">載入中...</p>
 </div>
-</div></main></div>
-<!-- 新增/編輯產品 Modal -->
-<div class="hidden fixed inset-0 z-[100] bg-inverse-surface/40 backdrop-blur-sm items-center justify-center p-md" id="prod-modal">
-<div class="bg-surface rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-lg space-y-md">
-<div class="flex justify-between items-start">
-<h2 class="font-headline-md text-headline-md text-on-surface" id="prod-modal-title">新增產品</h2>
-<button class="text-on-surface-variant hover:text-error p-1" onclick="closeProductModal()"><span class="material-symbols-outlined">close</span></button>
+<!-- 單品列表 -->
+<div class="hidden bg-surface-container-lowest rounded-3xl shadow-[0_4px_40px_rgba(157,129,137,0.05)] border border-outline-variant/20 overflow-hidden relative z-10" id="prod-panel">
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse min-w-[860px]">
+<thead>
+<tr class="border-b border-outline-variant/30 text-on-surface-variant font-label-md bg-surface-container-low/50">
+<th class="py-4 px-6 font-semibold">產品名稱</th>
+<th class="py-4 px-6 font-semibold">分類 / 單位</th>
+<th class="py-4 px-6 font-semibold">材料配方</th>
+<th class="py-4 px-6 font-semibold text-right">單位成本</th>
+<th class="py-4 px-6 font-semibold text-right">操作</th>
+</tr>
+</thead>
+<tbody class="font-body-md text-on-surface divide-y divide-outline-variant/10" id="prod-tbody"></tbody>
+</table>
 </div>
-<form class="space-y-sm" id="prod-form">
-<input id="prod-id" type="hidden"/>
-<!-- 圖片上傳與預覽 -->
+</div>
+</div></main></div>
+
+<!-- 禮盒 Modal -->
+<div class="hidden fixed inset-0 z-[100] bg-inverse-surface/40 backdrop-blur-sm items-center justify-center p-md" id="pkg-modal">
+<div class="bg-surface rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-lg space-y-md">
+<div class="flex justify-between items-start">
+<h2 class="font-headline-md text-headline-md text-on-surface" id="pkg-modal-title">新增禮盒</h2>
+<button class="text-on-surface-variant hover:text-error p-1" onclick="closePkgModal()"><span class="material-symbols-outlined">close</span></button>
+</div>
+<form class="space-y-sm" id="pkg-form">
+<input id="pkg-id" type="hidden"/>
 <div>
-<label class="font-label-md text-on-surface block mb-1">商品照片</label>
-<label class="block w-full aspect-[16/9] rounded-xl bg-surface-container-low ring-1 ring-tertiary-fixed hover:ring-primary cursor-pointer overflow-hidden relative transition-all" for="prod-image">
-<img class="hidden w-full h-full object-cover" id="prod-preview"/>
-<div class="absolute inset-0 flex flex-col items-center justify-center gap-xs text-on-surface-variant" id="prod-placeholder">
+<label class="font-label-md text-on-surface block mb-1">禮盒照片</label>
+<label class="block w-full aspect-[16/9] rounded-xl bg-surface-container-low ring-1 ring-tertiary-fixed hover:ring-primary cursor-pointer overflow-hidden relative transition-all" for="pkg-image">
+<img class="hidden w-full h-full object-cover" id="pkg-preview"/>
+<div class="absolute inset-0 flex flex-col items-center justify-center gap-xs text-on-surface-variant" id="pkg-placeholder">
 <span class="material-symbols-outlined text-4xl">add_photo_alternate</span>
 <span class="font-caption">點擊選擇圖片 (jpg / png / webp)</span>
 </div>
 </label>
-<input accept="image/jpeg,image/png,image/webp,image/gif" class="hidden" id="prod-image" type="file"/>
+<input accept="image/jpeg,image/png,image/webp,image/gif" class="hidden" id="pkg-image" type="file"/>
 </div>
-<div><label class="font-label-md text-on-surface block mb-1">商品名稱 *</label>
-<input class="w-full bg-surface-container-low px-4 py-3 rounded-lg ring-1 ring-tertiary-fixed focus:ring-2 focus:ring-primary outline-none" id="prod-name" required type="text"/></div>
+<div><label class="font-label-md text-on-surface block mb-1">禮盒名稱 *</label>
+<input class="w-full bg-surface-container-low px-4 py-3 rounded-lg ring-1 ring-tertiary-fixed focus:ring-2 focus:ring-primary outline-none" id="pkg-name" required type="text"/></div>
 <div><label class="font-label-md text-on-surface block mb-1">商品描述</label>
-<textarea class="w-full bg-surface-container-low px-4 py-3 rounded-lg ring-1 ring-tertiary-fixed focus:ring-2 focus:ring-primary outline-none" id="prod-desc" rows="3"></textarea></div>
+<textarea class="w-full bg-surface-container-low px-4 py-3 rounded-lg ring-1 ring-tertiary-fixed focus:ring-2 focus:ring-primary outline-none" id="pkg-desc" rows="2"></textarea></div>
 <div class="grid grid-cols-2 gap-sm">
 <div><label class="font-label-md text-on-surface block mb-1">售價 (NT$) *</label>
-<input class="w-full bg-surface-container-low px-4 py-3 rounded-lg ring-1 ring-tertiary-fixed focus:ring-2 focus:ring-primary outline-none" id="prod-price" min="0" required type="number"/></div>
+<input class="w-full bg-surface-container-low px-4 py-3 rounded-lg ring-1 ring-tertiary-fixed focus:ring-2 focus:ring-primary outline-none" id="pkg-price" min="0" required type="number"/></div>
 <div><label class="font-label-md text-on-surface block mb-1">規格</label>
-<input class="w-full bg-surface-container-low px-4 py-3 rounded-lg ring-1 ring-tertiary-fixed focus:ring-2 focus:ring-primary outline-none" id="prod-spec" placeholder="6入裝" type="text"/></div>
+<input class="w-full bg-surface-container-low px-4 py-3 rounded-lg ring-1 ring-tertiary-fixed focus:ring-2 focus:ring-primary outline-none" id="pkg-spec" placeholder="6入裝" type="text"/></div>
 </div>
 <div class="grid grid-cols-2 gap-sm">
 <div><label class="font-label-md text-on-surface block mb-1">分類</label>
-<select class="w-full bg-surface-container-low px-4 py-3 rounded-lg ring-1 ring-tertiary-fixed focus:ring-2 focus:ring-primary outline-none" id="prod-category">
+<select class="w-full bg-surface-container-low px-4 py-3 rounded-lg ring-1 ring-tertiary-fixed focus:ring-2 focus:ring-primary outline-none" id="pkg-category">
 <option>蛋黃酥系列</option><option>鳳梨酥系列</option><option>節慶禮盒</option><option>其他</option>
 </select></div>
 <div><label class="font-label-md text-on-surface block mb-1">標籤 (選填)</label>
-<input class="w-full bg-surface-container-low px-4 py-3 rounded-lg ring-1 ring-tertiary-fixed focus:ring-2 focus:ring-primary outline-none" id="prod-tag" placeholder="新品上市" type="text"/></div>
+<input class="w-full bg-surface-container-low px-4 py-3 rounded-lg ring-1 ring-tertiary-fixed focus:ring-2 focus:ring-primary outline-none" id="pkg-tag" placeholder="新品上市" type="text"/></div>
+</div>
+<!-- 禮盒內容物 -->
+<div class="bg-surface-container-low rounded-xl p-md space-y-sm">
+<div class="flex items-center justify-between">
+<label class="font-label-md text-primary">禮盒內容物 (單一產品)</label>
+<button class="text-primary hover:text-secondary font-label-md flex items-center gap-1" onclick="addItemRow()" type="button">
+<span class="material-symbols-outlined text-[18px]">add</span>加入產品
+</button>
+</div>
+<div class="space-y-xs" id="pkg-items"></div>
+<div class="flex items-center justify-between pt-sm border-t border-outline-variant/30">
+<span class="font-body-md text-on-surface-variant">預估材料成本 (含包材)</span>
+<span class="font-headline-md text-primary" id="pkg-cost-preview">NT$ 0</span>
+</div>
+</div>
+<div class="grid grid-cols-2 gap-sm">
+<div><label class="font-label-md text-on-surface block mb-1">包材</label>
+<select class="w-full bg-surface-container-low px-4 py-3 rounded-lg ring-1 ring-tertiary-fixed focus:ring-2 focus:ring-primary outline-none" id="pkg-packaging"></select></div>
+<div><label class="font-label-md text-on-surface block mb-1">包材用量</label>
+<input class="w-full bg-surface-container-low px-4 py-3 rounded-lg ring-1 ring-tertiary-fixed focus:ring-2 focus:ring-primary outline-none" id="pkg-packaging-qty" min="0" step="0.01" type="number" value="1"/></div>
 </div>
 <label class="flex items-center gap-sm py-2 cursor-pointer">
-<input checked class="accent-primary w-5 h-5" id="prod-active" type="checkbox"/>
+<input checked class="accent-primary w-5 h-5" id="pkg-active" type="checkbox"/>
 <span class="font-body-md text-on-surface">立即上架 (前台可見)</span>
 </label>
-<p class="hidden text-error font-body-md" id="prod-error"></p>
+<p class="hidden text-error font-body-md" id="pkg-error"></p>
 <button class="w-full py-3 bg-primary text-on-primary font-label-md rounded-full shadow-md hover:shadow-lg transition-all" type="submit">儲存</button>
 </form>
 </div>
 </div>
+
+<!-- 單品 Modal -->
+<div class="hidden fixed inset-0 z-[100] bg-inverse-surface/40 backdrop-blur-sm items-center justify-center p-md" id="single-modal">
+<div class="bg-surface rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-lg space-y-md">
+<div class="flex justify-between items-start">
+<h2 class="font-headline-md text-headline-md text-on-surface" id="single-modal-title">新增單一產品</h2>
+<button class="text-on-surface-variant hover:text-error p-1" onclick="closeSingleModal()"><span class="material-symbols-outlined">close</span></button>
+</div>
+<form class="space-y-sm" id="single-form">
+<input id="single-id" type="hidden"/>
+<div><label class="font-label-md text-on-surface block mb-1">產品名稱 *</label>
+<input class="w-full bg-surface-container-low px-4 py-3 rounded-lg ring-1 ring-tertiary-fixed focus:ring-2 focus:ring-primary outline-none" id="single-name" required type="text"/></div>
+<div><label class="font-label-md text-on-surface block mb-1">說明</label>
+<textarea class="w-full bg-surface-container-low px-4 py-3 rounded-lg ring-1 ring-tertiary-fixed focus:ring-2 focus:ring-primary outline-none" id="single-desc" rows="2"></textarea></div>
+<div class="grid grid-cols-2 gap-sm">
+<div><label class="font-label-md text-on-surface block mb-1">分類</label>
+<input class="w-full bg-surface-container-low px-4 py-3 rounded-lg ring-1 ring-tertiary-fixed focus:ring-2 focus:ring-primary outline-none" id="single-category" placeholder="蛋黃酥" type="text"/></div>
+<div><label class="font-label-md text-on-surface block mb-1">單位</label>
+<input class="w-full bg-surface-container-low px-4 py-3 rounded-lg ring-1 ring-tertiary-fixed focus:ring-2 focus:ring-primary outline-none" id="single-unit" placeholder="顆" type="text" value="顆"/></div>
+</div>
+<div class="bg-surface-container-low rounded-xl p-md space-y-sm">
+<div class="flex items-center justify-between">
+<label class="font-label-md text-primary">材料配方 (每 1 單位用量)</label>
+<button class="text-primary hover:text-secondary font-label-md flex items-center gap-1" onclick="addBomRow()" type="button">
+<span class="material-symbols-outlined text-[18px]">add</span>加入材料
+</button>
+</div>
+<div class="space-y-xs" id="single-bom"></div>
+<div class="flex items-center justify-between pt-sm border-t border-outline-variant/30">
+<span class="font-body-md text-on-surface-variant">單位成本</span>
+<span class="font-headline-md text-primary" id="single-cost-preview">NT$ 0</span>
+</div>
+</div>
+<p class="hidden text-error font-body-md" id="single-error"></p>
+<button class="w-full py-3 bg-primary text-on-primary font-label-md rounded-full shadow-md hover:shadow-lg transition-all" type="submit">儲存</button>
+</form>
+</div>
+</div>
+
 <script>
 requireLogin();
 fillAdminName();
 
-let allProducts = [];
+let packages = [], products = [], materials = [];
+let currentTab = "package";
 
-/* multipart 上傳 (不可帶 JSON Content-Type) */
 async function adminUpload(path, formData) {
   const res = await fetch(API_BASE + path, {
     method: "POST",
@@ -89,13 +175,40 @@ async function adminUpload(path, formData) {
   return data;
 }
 
-function renderProducts() {
-  document.getElementById("prod-grid").innerHTML = allProducts.map((p) => `
-    <article class="bg-surface-container-lowest rounded-2xl overflow-hidden flex flex-col shadow-[0_4px_24px_rgba(157,129,137,0.06)] border border-outline-variant/20 ${p.is_active ? "" : "opacity-70"}">
+/* ---------------- 分頁切換 ---------------- */
+document.querySelectorAll(".tab-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    currentTab = btn.dataset.tab;
+    document.querySelectorAll(".tab-btn").forEach((b) => {
+      const active = b === btn;
+      b.className = "tab-btn px-lg py-sm rounded-full font-label-md transition-all " +
+        (active ? "bg-primary text-on-primary shadow-md shadow-primary/20"
+                : "bg-surface-container text-on-surface-variant hover:bg-surface-container-high");
+    });
+    const isPkg = currentTab === "package";
+    document.getElementById("pkg-grid").classList.toggle("hidden", !isPkg);
+    document.getElementById("prod-panel").classList.toggle("hidden", isPkg);
+    document.getElementById("add-btn-label").textContent = isPkg ? "新增禮盒" : "新增單一產品";
+  });
+});
+
+document.getElementById("add-btn").addEventListener("click", () => {
+  if (currentTab === "package") openPkgModal();
+  else openSingleModal();
+});
+
+/* ---------------- 禮盒 ---------------- */
+function renderPackages() {
+  document.getElementById("pkg-grid").innerHTML = packages.map((p) => {
+    const contents = p.items.length
+      ? p.items.map((i) => `${i.name} × ${i.quantity}`).join("、")
+      : '<span class="text-error">尚未設定內容物</span>';
+    return `
+    <article class="bg-surface-container-lowest rounded-2xl overflow-hidden flex flex-col shadow-[0_4px_24px_rgba(157,129,137,0.06)] border border-outline-variant/20 hover:-translate-y-1 hover:shadow-[0_12px_36px_rgba(157,129,137,0.14)] ${p.is_active ? "" : "opacity-70"}">
       <div class="relative w-full aspect-[16/10] overflow-hidden bg-surface-container">
         ${p.image
-          ? `<img alt="${p.name}" class="w-full h-full object-cover ${p.is_active ? "" : "grayscale"}" src="..${p.image}"/>`
-          : '<div class="w-full h-full flex items-center justify-center text-outline-variant"><span class="material-symbols-outlined text-5xl">bakery_dining</span></div>'}
+          ? `<img alt="${p.name}" class="w-full h-full object-cover transition-transform duration-700 hover:scale-105 ${p.is_active ? "" : "grayscale"}" src="..${p.image}"/>`
+          : '<div class="w-full h-full flex items-center justify-center text-outline-variant"><span class="material-symbols-outlined text-5xl">redeem</span></div>'}
         <div class="absolute top-3 left-3 flex gap-2">
           ${p.is_active
             ? '<span class="bg-tertiary-container text-on-tertiary font-caption px-3 py-1 rounded-full">上架中</span>'
@@ -108,8 +221,13 @@ function renderProducts() {
           <h2 class="font-headline-md text-headline-md text-on-surface">${p.name}</h2>
           <span class="font-headline-md text-primary whitespace-nowrap">NT$ ${p.price.toLocaleString()}</span>
         </div>
-        <p class="font-caption text-on-surface-variant">${p.category} · ${p.spec || "-"} · 材料成本約 NT$ ${p.material_cost}</p>
-        <p class="font-body-md text-on-surface-variant line-clamp-2 flex-grow">${p.description || ""}</p>
+        <p class="font-caption text-on-surface-variant">${p.category} · ${p.spec || "-"}</p>
+        <p class="font-body-md text-on-surface-variant line-clamp-2">${contents}</p>
+        <div class="grid grid-cols-3 gap-xs mt-sm p-sm bg-surface-container-low rounded-lg text-center">
+          <div><p class="font-caption text-on-surface-variant">成本</p><p class="font-label-md text-on-surface">NT$ ${p.cost}</p></div>
+          <div><p class="font-caption text-on-surface-variant">毛利</p><p class="font-label-md text-on-surface">NT$ ${p.profit}</p></div>
+          <div><p class="font-caption text-on-surface-variant">毛利率</p><p class="font-label-md ${p.margin >= 50 ? "text-tertiary" : "text-error"}">${p.margin}%</p></div>
+        </div>
         <div class="flex items-center justify-between mt-sm pt-sm border-t border-outline-variant/20">
           <label class="flex items-center gap-sm cursor-pointer select-none">
             <span class="relative inline-block w-11 h-6">
@@ -119,103 +237,279 @@ function renderProducts() {
             </span>
             <span class="font-label-md text-on-surface-variant">${p.is_active ? "上架" : "下架"}</span>
           </label>
-          <button class="flex items-center gap-1 text-primary hover:text-on-primary-fixed-variant font-label-md transition-colors" onclick="openProductModal(${p.id})">
+          <button class="flex items-center gap-1 text-primary hover:text-on-primary-fixed-variant font-label-md" onclick="openPkgModal(${p.id})">
             <span class="material-symbols-outlined text-[18px]">edit</span> 編輯
           </button>
         </div>
       </div>
-    </article>`).join("");
+    </article>`;
+  }).join("");
+
   document.querySelectorAll(".toggle-active").forEach((sw) => {
     sw.addEventListener("change", async () => {
       try {
-        await adminFetch(`/admin/products/${sw.dataset.id}/active`, {
-          method: "PATCH",
-          body: JSON.stringify({ is_active: sw.checked }),
+        await adminFetch(`/admin/packages/${sw.dataset.id}/active`, {
+          method: "PATCH", body: JSON.stringify({ is_active: sw.checked }),
         });
-        loadProducts();
-      } catch (err) { alert(err.message); sw.checked = !sw.checked; }
+        adminToast(sw.checked ? "已上架,前台立即可見" : "已下架");
+        loadAll();
+      } catch (err) { adminToast(err.message, true); sw.checked = !sw.checked; }
     });
   });
 }
 
-async function loadProducts() {
-  try {
-    const d = await adminFetch("/admin/products");
-    allProducts = d.products;
-    renderProducts();
-  } catch (err) {
-    document.getElementById("prod-grid").innerHTML =
-      `<p class="text-error col-span-full">無法載入商品:${err.message}</p>`;
-  }
+function itemRowHtml(productId, qty) {
+  const opts = products.map((p) =>
+    `<option value="${p.id}" ${p.id === productId ? "selected" : ""}>${p.name} (成本 NT$ ${p.cost})</option>`).join("");
+  return `
+    <div class="pkg-item-row flex items-center gap-sm">
+      <select class="item-product flex-grow bg-surface px-3 py-2 rounded-lg ring-1 ring-tertiary-fixed focus:ring-2 focus:ring-primary outline-none">${opts}</select>
+      <input class="item-qty w-24 bg-surface px-3 py-2 rounded-lg ring-1 ring-tertiary-fixed focus:ring-2 focus:ring-primary outline-none" min="0" step="1" type="number" value="${qty}"/>
+      <button class="text-on-surface-variant hover:text-error p-1" onclick="this.closest('.pkg-item-row').remove(); updatePkgCost()" type="button">
+        <span class="material-symbols-outlined text-[20px]">delete</span>
+      </button>
+    </div>`;
 }
 
-function openProductModal(id) {
-  const p = allProducts.find((x) => x.id === id);
-  document.getElementById("prod-modal-title").textContent = p ? "編輯產品" : "新增產品";
-  document.getElementById("prod-id").value = p ? p.id : "";
-  document.getElementById("prod-name").value = p ? p.name : "";
-  document.getElementById("prod-desc").value = p ? p.description : "";
-  document.getElementById("prod-price").value = p ? p.price : "";
-  document.getElementById("prod-spec").value = p ? p.spec : "";
-  document.getElementById("prod-category").value = p ? p.category : "蛋黃酥系列";
-  document.getElementById("prod-tag").value = p ? p.tag : "";
-  document.getElementById("prod-active").checked = p ? !!p.is_active : true;
-  document.getElementById("prod-image").value = "";
-  const preview = document.getElementById("prod-preview");
-  const placeholder = document.getElementById("prod-placeholder");
+function addItemRow(productId, qty) {
+  if (!products.length) { adminToast("請先於「單一產品與配方」建立產品", true); return; }
+  const box = document.getElementById("pkg-items");
+  box.insertAdjacentHTML("beforeend", itemRowHtml(productId || products[0].id, qty || 1));
+  box.querySelectorAll("select, input").forEach((el) => el.oninput = updatePkgCost);
+  updatePkgCost();
+}
+
+function collectPkgItems() {
+  return Array.from(document.querySelectorAll(".pkg-item-row")).map((row) => ({
+    product_id: Number(row.querySelector(".item-product").value),
+    quantity: Number(row.querySelector(".item-qty").value),
+  })).filter((i) => i.quantity > 0);
+}
+
+function updatePkgCost() {
+  let cost = collectPkgItems().reduce((sum, i) => {
+    const p = products.find((x) => x.id === i.product_id);
+    return sum + (p ? p.cost * i.quantity : 0);
+  }, 0);
+  const mid = Number(document.getElementById("pkg-packaging").value);
+  const qty = Number(document.getElementById("pkg-packaging-qty").value) || 0;
+  const m = materials.find((x) => x.id === mid);
+  if (m) cost += m.unit_cost * qty;
+  document.getElementById("pkg-cost-preview").textContent = "NT$ " + Math.round(cost * 10) / 10;
+}
+
+function openPkgModal(id) {
+  const p = packages.find((x) => x.id === id);
+  document.getElementById("pkg-modal-title").textContent = p ? "編輯禮盒" : "新增禮盒";
+  document.getElementById("pkg-id").value = p ? p.id : "";
+  document.getElementById("pkg-name").value = p ? p.name : "";
+  document.getElementById("pkg-desc").value = p ? p.description : "";
+  document.getElementById("pkg-price").value = p ? p.price : "";
+  document.getElementById("pkg-spec").value = p ? p.spec : "";
+  document.getElementById("pkg-category").value = p ? p.category : "蛋黃酥系列";
+  document.getElementById("pkg-tag").value = p ? p.tag : "";
+  document.getElementById("pkg-active").checked = p ? !!p.is_active : true;
+  document.getElementById("pkg-image").value = "";
+  document.getElementById("pkg-packaging").value = p && p.packaging_material_id ? p.packaging_material_id : "";
+  document.getElementById("pkg-packaging-qty").value = p ? p.packaging_qty : 1;
+
+  const preview = document.getElementById("pkg-preview");
+  const placeholder = document.getElementById("pkg-placeholder");
   if (p && p.image) {
     preview.src = ".." + p.image;
-    preview.classList.remove("hidden");
-    placeholder.classList.add("hidden");
+    preview.classList.remove("hidden"); placeholder.classList.add("hidden");
   } else {
-    preview.classList.add("hidden");
-    placeholder.classList.remove("hidden");
+    preview.classList.add("hidden"); placeholder.classList.remove("hidden");
   }
-  document.getElementById("prod-error").classList.add("hidden");
-  const modal = document.getElementById("prod-modal");
+
+  document.getElementById("pkg-items").innerHTML = "";
+  (p ? p.items : []).forEach((i) => addItemRow(i.product_id, i.quantity));
+  updatePkgCost();
+  document.getElementById("pkg-error").classList.add("hidden");
+  const modal = document.getElementById("pkg-modal");
   modal.classList.remove("hidden"); modal.classList.add("flex");
 }
-function closeProductModal() {
-  const modal = document.getElementById("prod-modal");
+function closePkgModal() {
+  const modal = document.getElementById("pkg-modal");
   modal.classList.add("hidden"); modal.classList.remove("flex");
 }
 
-document.getElementById("prod-image").addEventListener("change", (e) => {
+document.getElementById("pkg-image").addEventListener("change", (e) => {
   const file = e.target.files[0];
   if (!file) return;
-  const preview = document.getElementById("prod-preview");
+  const preview = document.getElementById("pkg-preview");
   preview.src = URL.createObjectURL(file);
   preview.classList.remove("hidden");
-  document.getElementById("prod-placeholder").classList.add("hidden");
+  document.getElementById("pkg-placeholder").classList.add("hidden");
 });
+["pkg-packaging", "pkg-packaging-qty"].forEach((id) =>
+  document.getElementById(id).addEventListener("input", updatePkgCost));
 
-document.getElementById("prod-form").addEventListener("submit", async (e) => {
+document.getElementById("pkg-form").addEventListener("submit", async (e) => {
   e.preventDefault();
-  const id = document.getElementById("prod-id").value;
+  const id = document.getElementById("pkg-id").value;
   const fd = new FormData();
-  fd.append("name", document.getElementById("prod-name").value);
-  fd.append("description", document.getElementById("prod-desc").value);
-  fd.append("price", document.getElementById("prod-price").value);
-  fd.append("spec", document.getElementById("prod-spec").value);
-  fd.append("category", document.getElementById("prod-category").value);
-  fd.append("tag", document.getElementById("prod-tag").value);
-  fd.append("is_active", document.getElementById("prod-active").checked ? "1" : "0");
-  const file = document.getElementById("prod-image").files[0];
+  fd.append("name", document.getElementById("pkg-name").value);
+  fd.append("description", document.getElementById("pkg-desc").value);
+  fd.append("price", document.getElementById("pkg-price").value);
+  fd.append("spec", document.getElementById("pkg-spec").value);
+  fd.append("category", document.getElementById("pkg-category").value);
+  fd.append("tag", document.getElementById("pkg-tag").value);
+  fd.append("packaging_material_id", document.getElementById("pkg-packaging").value);
+  fd.append("packaging_qty", document.getElementById("pkg-packaging-qty").value || 1);
+  fd.append("is_active", document.getElementById("pkg-active").checked ? "1" : "0");
+  fd.append("items", JSON.stringify(collectPkgItems()));
+  const file = document.getElementById("pkg-image").files[0];
   if (file) fd.append("image", file);
   try {
-    if (id) await adminUpload(`/admin/products/${id}/update`, fd);
-    else await adminUpload("/admin/products", fd);
-    closeProductModal();
-    loadProducts();
+    await adminUpload(id ? `/admin/packages/${id}/update` : "/admin/packages", fd);
+    closePkgModal();
+    adminToast(id ? "禮盒已更新" : "禮盒已新增");
+    loadAll();
   } catch (err) {
-    const el = document.getElementById("prod-error");
+    const el = document.getElementById("pkg-error");
     el.textContent = err.message; el.classList.remove("hidden");
   }
 });
 
-document.getElementById("prod-modal").addEventListener("click", (e) => {
-  if (e.target === e.currentTarget) closeProductModal();
+/* ---------------- 單一產品 ---------------- */
+function renderProducts() {
+  document.getElementById("prod-tbody").innerHTML = products.map((p) => `
+    <tr class="hover:bg-surface-container-low/40 transition-colors group">
+      <td class="py-4 px-6">
+        <p class="font-semibold text-on-surface group-hover:text-primary transition-colors">${p.name}</p>
+        <p class="text-caption text-on-surface-variant line-clamp-1">${p.description || ""}</p>
+      </td>
+      <td class="py-4 px-6 text-on-surface-variant">${p.category} / ${p.unit}</td>
+      <td class="py-4 px-6">
+        <div class="flex flex-wrap gap-1">
+          ${p.materials.length
+            ? p.materials.map((m) => `<span class="px-2 py-1 rounded-full bg-surface-container text-on-surface-variant font-caption">${m.name} ${m.quantity}${m.unit}</span>`).join("")
+            : '<span class="text-error font-caption">尚未設定配方</span>'}
+        </div>
+      </td>
+      <td class="py-4 px-6 text-right font-label-md text-primary">NT$ ${p.cost}</td>
+      <td class="py-4 px-6 text-right whitespace-nowrap">
+        <button class="text-primary hover:text-on-primary-fixed-variant font-label-md mr-md" onclick="openSingleModal(${p.id})">編輯</button>
+        <button class="text-on-surface-variant hover:text-error font-label-md" onclick="deleteProduct(${p.id})">刪除</button>
+      </td>
+    </tr>`).join("");
+}
+
+function bomRowHtml(materialId, qty) {
+  const opts = materials.map((m) =>
+    `<option value="${m.id}" ${m.id === materialId ? "selected" : ""}>${m.name} (NT$ ${m.unit_cost}/${m.unit})</option>`).join("");
+  return `
+    <div class="bom-row flex items-center gap-sm">
+      <select class="bom-material flex-grow bg-surface px-3 py-2 rounded-lg ring-1 ring-tertiary-fixed focus:ring-2 focus:ring-primary outline-none">${opts}</select>
+      <input class="bom-qty w-28 bg-surface px-3 py-2 rounded-lg ring-1 ring-tertiary-fixed focus:ring-2 focus:ring-primary outline-none" min="0" step="0.001" type="number" value="${qty}"/>
+      <button class="text-on-surface-variant hover:text-error p-1" onclick="this.closest('.bom-row').remove(); updateSingleCost()" type="button">
+        <span class="material-symbols-outlined text-[20px]">delete</span>
+      </button>
+    </div>`;
+}
+
+function addBomRow(materialId, qty) {
+  if (!materials.length) { adminToast("請先於材料管理建立材料", true); return; }
+  const box = document.getElementById("single-bom");
+  box.insertAdjacentHTML("beforeend", bomRowHtml(materialId || materials[0].id, qty != null ? qty : 0.1));
+  box.querySelectorAll("select, input").forEach((el) => el.oninput = updateSingleCost);
+  updateSingleCost();
+}
+
+function collectBom() {
+  return Array.from(document.querySelectorAll(".bom-row")).map((row) => ({
+    material_id: Number(row.querySelector(".bom-material").value),
+    quantity: Number(row.querySelector(".bom-qty").value),
+  })).filter((m) => m.quantity > 0);
+}
+
+function updateSingleCost() {
+  const cost = collectBom().reduce((sum, b) => {
+    const m = materials.find((x) => x.id === b.material_id);
+    return sum + (m ? m.unit_cost * b.quantity : 0);
+  }, 0);
+  document.getElementById("single-cost-preview").textContent = "NT$ " + Math.round(cost * 100) / 100;
+}
+
+function openSingleModal(id) {
+  const p = products.find((x) => x.id === id);
+  document.getElementById("single-modal-title").textContent = p ? "編輯單一產品" : "新增單一產品";
+  document.getElementById("single-id").value = p ? p.id : "";
+  document.getElementById("single-name").value = p ? p.name : "";
+  document.getElementById("single-desc").value = p ? p.description : "";
+  document.getElementById("single-category").value = p ? p.category : "";
+  document.getElementById("single-unit").value = p ? p.unit : "顆";
+  document.getElementById("single-bom").innerHTML = "";
+  (p ? p.materials : []).forEach((m) => addBomRow(m.material_id, m.quantity));
+  updateSingleCost();
+  document.getElementById("single-error").classList.add("hidden");
+  const modal = document.getElementById("single-modal");
+  modal.classList.remove("hidden"); modal.classList.add("flex");
+}
+function closeSingleModal() {
+  const modal = document.getElementById("single-modal");
+  modal.classList.add("hidden"); modal.classList.remove("flex");
+}
+
+document.getElementById("single-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const id = document.getElementById("single-id").value;
+  const body = {
+    name: document.getElementById("single-name").value,
+    description: document.getElementById("single-desc").value,
+    category: document.getElementById("single-category").value || "其他",
+    unit: document.getElementById("single-unit").value || "顆",
+    materials: collectBom(),
+  };
+  try {
+    if (id) await adminFetch(`/admin/products/${id}`, { method: "PATCH", body: JSON.stringify(body) });
+    else await adminFetch("/admin/products", { method: "POST", body: JSON.stringify(body) });
+    closeSingleModal();
+    adminToast(id ? "產品已更新" : "產品已新增");
+    loadAll();
+  } catch (err) {
+    const el = document.getElementById("single-error");
+    el.textContent = err.message; el.classList.remove("hidden");
+  }
 });
 
-loadProducts();
+async function deleteProduct(id) {
+  const p = products.find((x) => x.id === id);
+  if (!confirm(`確定要刪除「${p ? p.name : id}」嗎?`)) return;
+  try {
+    await adminFetch(`/admin/products/${id}`, { method: "DELETE" });
+    adminToast("產品已刪除");
+    loadAll();
+  } catch (err) { adminToast(err.message, true); }
+}
+
+/* ---------------- 載入 ---------------- */
+async function loadAll() {
+  try {
+    const [pk, pr, mt] = await Promise.all([
+      adminFetch("/admin/packages"),
+      adminFetch("/admin/products"),
+      adminFetch("/admin/materials"),
+    ]);
+    packages = pk.packages;
+    products = pr.products;
+    materials = mt.materials;
+    document.getElementById("pkg-packaging").innerHTML =
+      '<option value="">(不使用包材)</option>' +
+      materials.map((m) => `<option value="${m.id}">${m.name} (NT$ ${m.unit_cost}/${m.unit})</option>`).join("");
+    renderPackages();
+    renderProducts();
+  } catch (err) {
+    document.getElementById("pkg-grid").innerHTML =
+      `<p class="text-error col-span-full">無法載入資料:${err.message}</p>`;
+  }
+}
+
+["pkg-modal", "single-modal"].forEach((id) =>
+  document.getElementById(id).addEventListener("click", (e) => {
+    if (e.target === e.currentTarget) { e.currentTarget.classList.add("hidden"); e.currentTarget.classList.remove("flex"); }
+  }));
+
+loadAll();
 </script></body></html>

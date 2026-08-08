@@ -1,4 +1,9 @@
-"""後台管理 API:材料管理、產品管理 (含圖片上傳)、用戶權限、財務統計。"""
+"""後台管理 API:材料、單一產品與配方、禮盒 (含圖片上傳)、用戶權限、財務統計。
+
+成本結構 (三層):
+    材料 unit_cost → 單品成本 Σ(配方用量 × 材料單價)
+                   → 禮盒成本 Σ(內容物入數 × 單品成本) + 包材成本
+"""
 import re
 import time
 from datetime import date, timedelta
@@ -20,20 +25,58 @@ ALLOWED_EXT = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 ACTIVE_ORDER_STATUSES = ("pending", "paid")  # 尚未出貨 → 仍會消耗材料
 
 
-# ---------------------------------------------------------------- 材料管理
-def _material_demand():
-    """依未出貨訂單 × 商品配方,計算每項材料的預估需求量。"""
+# ---------------------------------------------------------------- 成本計算
+def product_costs():
+    """單品材料成本 = Σ(配方用量 × 材料單位成本)。"""
     rows = db.query(
-        "SELECT pm.material_id, SUM(oi.quantity * pm.quantity) AS demand"
+        "SELECT pm.product_id, SUM(pm.quantity * m.unit_cost) AS cost"
+        " FROM product_materials pm JOIN materials m ON m.id = pm.material_id"
+        " GROUP BY pm.product_id")
+    return {r["product_id"]: float(r["cost"]) for r in rows}
+
+
+def package_costs():
+    """禮盒成本 = Σ(內容物入數 × 單品成本) + 包材成本。"""
+    pcost = product_costs()
+    costs = {}
+    for r in db.query("SELECT package_id, product_id, quantity FROM package_products_map"):
+        costs[r["package_id"]] = costs.get(r["package_id"], 0) + \
+            pcost.get(r["product_id"], 0) * float(r["quantity"])
+    for r in db.query(
+            "SELECT k.id, k.packaging_qty, m.unit_cost FROM package k"
+            " JOIN materials m ON m.id = k.packaging_material_id"):
+        costs[r["id"]] = costs.get(r["id"], 0) + float(r["unit_cost"]) * float(r["packaging_qty"])
+    return costs
+
+
+def _material_demand():
+    """依未出貨訂單 → 禮盒內容 → 單品配方,計算每項材料的預估需求量。
+    包材另計 (每盒 packaging_qty)。"""
+    demand = {}
+    rows = db.query(
+        "SELECT pm.material_id, SUM(oi.quantity * ppm.quantity * pm.quantity) AS d"
         " FROM order_items oi"
         " JOIN orders o ON o.id = oi.order_id AND o.status IN %s"
-        " JOIN product_materials pm ON pm.product_id = oi.product_id"
+        " JOIN package_products_map ppm ON ppm.package_id = oi.package_id"
+        " JOIN product_materials pm ON pm.product_id = ppm.product_id"
         " GROUP BY pm.material_id",
-        (ACTIVE_ORDER_STATUSES,),
-    )
-    return {r["material_id"]: float(r["demand"]) for r in rows}
+        (ACTIVE_ORDER_STATUSES,))
+    for r in rows:
+        demand[r["material_id"]] = float(r["d"])
+    box = db.query(
+        "SELECT k.packaging_material_id AS mid, SUM(oi.quantity * k.packaging_qty) AS d"
+        " FROM order_items oi"
+        " JOIN orders o ON o.id = oi.order_id AND o.status IN %s"
+        " JOIN package k ON k.id = oi.package_id"
+        " WHERE k.packaging_material_id IS NOT NULL"
+        " GROUP BY k.packaging_material_id",
+        (ACTIVE_ORDER_STATUSES,))
+    for r in box:
+        demand[r["mid"]] = demand.get(r["mid"], 0) + float(r["d"])
+    return demand
 
 
+# ---------------------------------------------------------------- 材料管理
 def _material_status(stock, safety, demand):
     if stock < demand or (safety > 0 and stock < safety * 0.5):
         return "shortage"
@@ -144,45 +187,164 @@ def delete_material(mid):
     return jsonify({"id": mid, "deleted": True})
 
 
-# ---------------------------------------------------------------- 產品管理
-def _product_costs():
-    """每項商品的材料成本 = Σ(配方用量 × 材料單位成本)。"""
-    rows = db.query(
-        "SELECT pm.product_id, SUM(pm.quantity * m.unit_cost) AS cost"
-        " FROM product_materials pm JOIN materials m ON m.id = pm.material_id"
-        " GROUP BY pm.product_id")
-    return {r["product_id"]: float(r["cost"]) for r in rows}
-
-
+# ---------------------------------------------------------------- 單一產品與配方
 @manage_bp.get("/products")
 @login_required
-def admin_list_products():
-    costs = _product_costs()
+def list_products():
+    costs = product_costs()
     rows = db.query(
-        "SELECT id, name, description, spec, category, price, image, tag, is_active, created_at"
-        " FROM products ORDER BY id DESC")
+        "SELECT id, name, description, category, unit, is_active FROM products ORDER BY id")
+    boms = db.query(
+        "SELECT pm.product_id, pm.material_id, pm.quantity, m.name, m.unit, m.unit_cost"
+        " FROM product_materials pm JOIN materials m ON m.id = pm.material_id ORDER BY pm.id")
+    by_product = {}
+    for b in boms:
+        by_product.setdefault(b["product_id"], []).append({
+            "material_id": b["material_id"], "name": b["name"], "unit": b["unit"],
+            "quantity": float(b["quantity"]),
+            "cost": round(float(b["quantity"]) * float(b["unit_cost"]), 2),
+        })
     for r in rows:
-        r["created_at"] = r["created_at"].strftime("%Y-%m-%d")
-        r["material_cost"] = round(costs.get(r["id"], 0), 1)
+        r["materials"] = by_product.get(r["id"], [])
+        r["cost"] = round(costs.get(r["id"], 0), 2)
     return jsonify({"products": rows})
 
 
+@manage_bp.post("/products")
+@login_required
+def create_product():
+    data = request.get_json(silent=True) or {}
+    name = (data.get("name") or "").strip()
+    if not name:
+        return jsonify({"error": "請填寫產品名稱"}), 400
+    pid = db.execute(
+        "INSERT INTO products (name, description, category, unit) VALUES (%s,%s,%s,%s)",
+        (name, data.get("description") or "", data.get("category") or "其他",
+         data.get("unit") or "顆"))
+    _replace_bom(pid, data.get("materials"))
+    return jsonify({"id": pid}), 201
+
+
+@manage_bp.patch("/products/<int:pid>")
+@login_required
+def update_product(pid):
+    if not db.query_one("SELECT id FROM products WHERE id = %s", (pid,)):
+        return jsonify({"error": "查無產品"}), 404
+    data = request.get_json(silent=True) or {}
+    fields, args = [], []
+    for col in ("name", "description", "category", "unit"):
+        if col in data:
+            fields.append(f"{col} = %s")
+            args.append(data[col])
+    if "is_active" in data:
+        fields.append("is_active = %s")
+        args.append(1 if data["is_active"] else 0)
+    if fields:
+        db.execute(f"UPDATE products SET {', '.join(fields)} WHERE id = %s", args + [pid])
+    if data.get("materials") is not None:
+        _replace_bom(pid, data["materials"])
+    return jsonify({"id": pid, "updated": True})
+
+
+def _replace_bom(pid, materials):
+    """整批覆寫單品配方。materials = [{material_id, quantity}, ...]"""
+    if not materials:
+        return
+    rows = []
+    for m in materials:
+        try:
+            mid, qty = int(m["material_id"]), float(m["quantity"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if qty > 0:
+            rows.append((pid, mid, qty))
+    db.execute("DELETE FROM product_materials WHERE product_id = %s", (pid,))
+    if rows:
+        with db.db_cursor(commit=True) as cur:
+            cur.executemany(
+                "INSERT INTO product_materials (product_id, material_id, quantity) VALUES (%s,%s,%s)",
+                rows)
+
+
+@manage_bp.delete("/products/<int:pid>")
+@login_required
+def delete_product(pid):
+    used = db.query_one(
+        "SELECT COUNT(*) AS c FROM package_products_map WHERE product_id = %s", (pid,))["c"]
+    if used:
+        return jsonify({"error": f"此產品仍被 {used} 個禮盒使用,請先移除禮盒內容"}), 400
+    db.execute("DELETE FROM products WHERE id = %s", (pid,))
+    return jsonify({"id": pid, "deleted": True})
+
+
+# ---------------------------------------------------------------- 禮盒管理 (販售單位)
 def _save_upload(file):
     ext = Path(file.filename or "").suffix.lower()
     if ext not in ALLOWED_EXT:
         raise ValueError("僅接受 jpg / png / webp / gif 圖片")
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-    base = secure_filename(Path(file.filename).stem) or "product"
-    base = re.sub(r"[^A-Za-z0-9_-]", "", base)[:40] or "product"
+    base = secure_filename(Path(file.filename).stem) or "package"
+    base = re.sub(r"[^A-Za-z0-9_-]", "", base)[:40] or "package"
     filename = f"{base}_{int(time.time())}{ext}"
     file.save(UPLOAD_DIR / filename)
     return f"/assets/uploads/{filename}"
 
 
-@manage_bp.post("/products")
+@manage_bp.get("/packages")
 @login_required
-def admin_create_product():
-    # multipart form:文字欄位 + image 檔案
+def list_packages():
+    costs = package_costs()
+    rows = db.query(
+        "SELECT id, name, description, spec, category, price, image, tag,"
+        " packaging_material_id, packaging_qty, is_active, created_at FROM package ORDER BY id DESC")
+    contents = db.query(
+        "SELECT m.package_id, m.product_id, m.quantity, p.name, p.unit"
+        " FROM package_products_map m JOIN products p ON p.id = m.product_id ORDER BY m.id")
+    by_pkg = {}
+    for c in contents:
+        by_pkg.setdefault(c["package_id"], []).append({
+            "product_id": c["product_id"], "name": c["name"],
+            "unit": c["unit"], "quantity": float(c["quantity"]),
+        })
+    for r in rows:
+        r["created_at"] = r["created_at"].strftime("%Y-%m-%d")
+        r["packaging_qty"] = float(r["packaging_qty"])
+        r["items"] = by_pkg.get(r["id"], [])
+        r["cost"] = round(costs.get(r["id"], 0), 1)
+        r["profit"] = round(r["price"] - r["cost"], 1)
+        r["margin"] = round((r["price"] - r["cost"]) / r["price"] * 100, 1) if r["price"] else 0
+    return jsonify({"packages": rows})
+
+
+def _replace_package_items(pkg_id, raw):
+    """整批覆寫禮盒內容。raw 為 JSON 字串或 list: [{product_id, quantity}, ...]"""
+    if raw is None:
+        return
+    if isinstance(raw, str):
+        import json
+        try:
+            raw = json.loads(raw)
+        except ValueError:
+            return
+    rows = []
+    for it in raw or []:
+        try:
+            pid, qty = int(it["product_id"]), float(it["quantity"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if qty > 0:
+            rows.append((pkg_id, pid, qty))
+    db.execute("DELETE FROM package_products_map WHERE package_id = %s", (pkg_id,))
+    if rows:
+        with db.db_cursor(commit=True) as cur:
+            cur.executemany(
+                "INSERT INTO package_products_map (package_id, product_id, quantity) VALUES (%s,%s,%s)",
+                rows)
+
+
+@manage_bp.post("/packages")
+@login_required
+def create_package():
     form = request.form
     name = (form.get("name") or "").strip()
     try:
@@ -190,7 +352,7 @@ def admin_create_product():
     except ValueError:
         return jsonify({"error": "價格必須為整數"}), 400
     if not name or price < 0:
-        return jsonify({"error": "請填寫商品名稱與價格"}), 400
+        return jsonify({"error": "請填寫禮盒名稱與售價"}), 400
 
     image_path = ""
     if "image" in request.files and request.files["image"].filename:
@@ -199,22 +361,24 @@ def admin_create_product():
         except ValueError as e:
             return jsonify({"error": str(e)}), 400
 
-    pid = db.execute(
-        "INSERT INTO products (name, description, spec, category, price, image, tag, is_active)"
-        " VALUES (%s,%s,%s,%s,%s,%s,%s,%s)",
+    pkg_id = db.execute(
+        "INSERT INTO package (name, description, spec, category, price, image, tag,"
+        " packaging_material_id, packaging_qty, is_active) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
         (name, form.get("description") or "", form.get("spec") or "",
          form.get("category") or "其他", price, image_path, form.get("tag") or "",
+         form.get("packaging_material_id") or None, form.get("packaging_qty") or 1,
          1 if form.get("is_active", "1") in ("1", "true", "on") else 0),
     )
-    return jsonify({"id": pid, "image": image_path}), 201
+    _replace_package_items(pkg_id, form.get("items"))
+    return jsonify({"id": pkg_id, "image": image_path}), 201
 
 
-@manage_bp.post("/products/<int:pid>/update")
+@manage_bp.post("/packages/<int:pkg_id>/update")
 @login_required
-def admin_update_product(pid):
-    """更新商品 (multipart;image 為選填,有附檔才更換圖片)。"""
-    if not db.query_one("SELECT id FROM products WHERE id = %s", (pid,)):
-        return jsonify({"error": "查無商品"}), 404
+def update_package(pkg_id):
+    """更新禮盒 (multipart;image 為選填,有附檔才更換圖片)。"""
+    if not db.query_one("SELECT id FROM package WHERE id = %s", (pkg_id,)):
+        return jsonify({"error": "查無禮盒"}), 404
     form = request.form
     fields, args = [], []
     for col in ("name", "description", "spec", "category", "tag"):
@@ -227,6 +391,12 @@ def admin_update_product(pid):
             args.append(int(form.get("price")))
         except ValueError:
             return jsonify({"error": "價格必須為整數"}), 400
+    if "packaging_material_id" in form:
+        fields.append("packaging_material_id = %s")
+        args.append(form.get("packaging_material_id") or None)
+    if "packaging_qty" in form:
+        fields.append("packaging_qty = %s")
+        args.append(form.get("packaging_qty") or 1)
     if "is_active" in form:
         fields.append("is_active = %s")
         args.append(1 if form.get("is_active") in ("1", "true", "on") else 0)
@@ -236,21 +406,21 @@ def admin_update_product(pid):
             args.append(_save_upload(request.files["image"]))
         except ValueError as e:
             return jsonify({"error": str(e)}), 400
-    if not fields:
-        return jsonify({"error": "沒有要更新的欄位"}), 400
-    db.execute(f"UPDATE products SET {', '.join(fields)} WHERE id = %s", args + [pid])
-    return jsonify({"id": pid, "updated": True})
+    if fields:
+        db.execute(f"UPDATE package SET {', '.join(fields)} WHERE id = %s", args + [pkg_id])
+    _replace_package_items(pkg_id, form.get("items"))
+    return jsonify({"id": pkg_id, "updated": True})
 
 
-@manage_bp.patch("/products/<int:pid>/active")
+@manage_bp.patch("/packages/<int:pkg_id>/active")
 @login_required
-def toggle_product_active(pid):
+def toggle_package_active(pkg_id):
     data = request.get_json(silent=True) or {}
     active = 1 if data.get("is_active") else 0
-    if not db.query_one("SELECT id FROM products WHERE id = %s", (pid,)):
-        return jsonify({"error": "查無商品"}), 404
-    db.execute("UPDATE products SET is_active = %s WHERE id = %s", (active, pid))
-    return jsonify({"id": pid, "is_active": active})
+    if not db.query_one("SELECT id FROM package WHERE id = %s", (pkg_id,)):
+        return jsonify({"error": "查無禮盒"}), 404
+    db.execute("UPDATE package SET is_active = %s WHERE id = %s", (active, pkg_id))
+    return jsonify({"id": pkg_id, "is_active": active})
 
 
 # ---------------------------------------------------------------- 用戶權限管理
@@ -312,7 +482,6 @@ def update_user(uid):
             return jsonify({"error": "角色不正確"}), 400
         fields.append("role = %s"); args.append(data["role"])
     if "is_active" in data:
-        # 避免把自己停權
         if str(uid) == request.admin.get("sub") and not data["is_active"]:
             return jsonify({"error": "不能停用自己的帳號"}), 400
         fields.append("is_active = %s"); args.append(1 if data["is_active"] else 0)
@@ -330,30 +499,32 @@ def update_user(uid):
 PERIODS = {"month": 30, "quarter": 90, "year": 365}
 
 
+def _cost_of_orders(costs, since, until=None):
+    sql = ("SELECT oi.package_id, SUM(oi.quantity) AS qty FROM order_items oi"
+           " JOIN orders o ON o.id = oi.order_id"
+           " WHERE o.created_at >= %s AND o.status != 'cancelled'")
+    args = [since]
+    if until:
+        sql += " AND o.created_at < %s"
+        args.append(until)
+    sql += " GROUP BY oi.package_id"
+    return sum(costs.get(r["package_id"], 0) * float(r["qty"]) for r in db.query(sql, args))
+
+
 @manage_bp.get("/finance")
 @role_required("finance")
 def finance_summary():
     days = PERIODS.get(request.args.get("period", "month"), 30)
     since = date.today() - timedelta(days=days)
-    costs = _product_costs()
+    costs = package_costs()
 
-    revenue = db.query_one(
+    revenue = int(db.query_one(
         "SELECT COALESCE(SUM(total),0) AS v FROM orders"
-        " WHERE created_at >= %s AND status != 'cancelled'", (since,))["v"]
+        " WHERE created_at >= %s AND status != 'cancelled'", (since,))["v"])
     order_count = db.query_one(
         "SELECT COUNT(*) AS v FROM orders WHERE created_at >= %s AND status != 'cancelled'",
         (since,))["v"]
-
-    # 材料成本 = Σ(訂單品項數量 × 該商品配方成本)
-    items = db.query(
-        "SELECT oi.product_id, SUM(oi.quantity) AS qty FROM order_items oi"
-        " JOIN orders o ON o.id = oi.order_id"
-        " WHERE o.created_at >= %s AND o.status != 'cancelled'"
-        " GROUP BY oi.product_id", (since,))
-    cost = sum(costs.get(r["product_id"], 0) * float(r["qty"]) for r in items)
-
-    revenue = int(revenue)
-    cost = round(cost)
+    cost = round(_cost_of_orders(costs, since))
     profit = revenue - cost
     margin = round(profit / revenue * 100, 1) if revenue else 0
 
@@ -361,20 +532,14 @@ def finance_summary():
     weeks = []
     today = date.today()
     for i in range(4):
-        # end 為區間隔日 0 點,確保「本週」含今天整天
         end = today + timedelta(days=1) - timedelta(days=7 * i)
         start = end - timedelta(days=7)
         row = db.query_one(
             "SELECT COUNT(*) AS cnt, COALESCE(SUM(total),0) AS rev FROM orders"
             " WHERE created_at >= %s AND created_at < %s AND status != 'cancelled'",
             (start, end))
-        witems = db.query(
-            "SELECT oi.product_id, SUM(oi.quantity) AS qty FROM order_items oi"
-            " JOIN orders o ON o.id = oi.order_id"
-            " WHERE o.created_at >= %s AND o.created_at < %s AND o.status != 'cancelled'"
-            " GROUP BY oi.product_id", (start, end))
-        wcost = sum(costs.get(r["product_id"], 0) * float(r["qty"]) for r in witems)
         wrev = int(row["rev"])
+        wcost = _cost_of_orders(costs, start, end)
         weeks.append({
             "label": ["本週", "上週", "兩週前", "三週前"][i],
             "orders": row["cnt"],
@@ -384,10 +549,6 @@ def finance_summary():
         })
 
     return jsonify({
-        "revenue": revenue,
-        "cost": cost,
-        "profit": profit,
-        "margin": margin,
-        "order_count": order_count,
-        "weeks": weeks,
+        "revenue": revenue, "cost": cost, "profit": profit, "margin": margin,
+        "order_count": order_count, "weeks": weeks,
     })

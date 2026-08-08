@@ -133,18 +133,18 @@ function renderCart() {
         <div class="flex flex-col flex-grow gap-2">
           <div class="flex flex-row justify-between items-start w-full">
             <h3 class="font-headline-md text-headline-md text-on-surface">${i.name}</h3>
-            <button aria-label="移除商品" class="remove-btn text-on-surface-variant hover:text-error transition-colors p-2" data-id="${i.product_id}">
+            <button aria-label="移除商品" class="remove-btn text-on-surface-variant hover:text-error transition-colors p-2" data-id="${i.package_id}">
               <span class="material-symbols-outlined pointer-events-none">close</span>
             </button>
           </div>
           <p class="font-body-md text-body-md text-on-surface-variant line-clamp-1">${i.spec || ""}</p>
           <div class="flex flex-row justify-between items-end mt-4">
             <div class="flex flex-row items-center bg-surface rounded-full shadow-sm p-1">
-              <button aria-label="減少數量" class="qty-btn w-8 h-8 flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors rounded-full" data-delta="-1" data-id="${i.product_id}">
+              <button aria-label="減少數量" class="qty-btn w-8 h-8 flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors rounded-full" data-delta="-1" data-id="${i.package_id}">
                 <span class="material-symbols-outlined text-[20px] pointer-events-none">remove</span>
               </button>
               <span class="font-label-md text-label-md text-on-surface w-8 text-center">${i.quantity}</span>
-              <button aria-label="增加數量" class="qty-btn w-8 h-8 flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors rounded-full" data-delta="1" data-id="${i.product_id}">
+              <button aria-label="增加數量" class="qty-btn w-8 h-8 flex items-center justify-center text-on-surface-variant hover:text-primary transition-colors rounded-full" data-delta="1" data-id="${i.package_id}">
                 <span class="material-symbols-outlined text-[20px] pointer-events-none">add</span>
               </button>
             </div>
@@ -154,8 +154,8 @@ function renderCart() {
       </div>`).join("");
     box.querySelectorAll(".qty-btn").forEach((btn) => btn.addEventListener("click", () => {
       const cart = getCart();
-      const item = cart.find((x) => x.product_id === Number(btn.dataset.id));
-      if (item) setQuantity(item.product_id, item.quantity + Number(btn.dataset.delta));
+      const item = cart.find((x) => x.package_id === Number(btn.dataset.id));
+      if (item) setQuantity(item.package_id, item.quantity + Number(btn.dataset.delta));
       renderCart();
     }));
     box.querySelectorAll(".remove-btn").forEach((btn) => btn.addEventListener("click", () => {
@@ -217,7 +217,7 @@ document.getElementById("checkout-form").addEventListener("submit", async (e) =>
       },
       shipping_method: shippingMethod(),
       payment_method: paymentMethod(),
-      items: cart.map((i) => ({ product_id: i.product_id, quantity: i.quantity })),
+      items: cart.map((i) => ({ package_id: i.package_id, quantity: i.quantity })),
     });
     clearCart();
     document.getElementById("cart-view").classList.add("hidden");

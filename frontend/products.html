@@ -93,8 +93,8 @@ document.querySelectorAll(".cat-btn").forEach((btn) => {
 });
 document.getElementById("sort").addEventListener("change", renderProducts);
 
-apiGet("/products")
-  .then((d) => { allProducts = d.products; renderProducts(); })
+apiGet("/packages")
+  .then((d) => { allProducts = d.packages; renderProducts(); })
   .catch((err) => {
     document.getElementById("product-grid").innerHTML =
       `<p class="font-body-md text-error col-span-full">無法載入商品,請確認後端服務已啟動 (${err.message})</p>`;

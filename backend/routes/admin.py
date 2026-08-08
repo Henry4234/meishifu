@@ -101,11 +101,11 @@ def dashboard():
     total_orders = db.query_one("SELECT COUNT(*) AS v FROM orders")["v"]
 
     best = db.query_one(
-        "SELECT oi.product_name, SUM(oi.quantity) AS qty, p.image"
+        "SELECT oi.package_name AS product_name, SUM(oi.quantity) AS qty, k.image"
         " FROM order_items oi"
         " JOIN orders o ON o.id = oi.order_id AND o.status != 'cancelled'"
-        " LEFT JOIN products p ON p.id = oi.product_id"
-        " GROUP BY oi.product_name, p.image ORDER BY qty DESC LIMIT 1")
+        " LEFT JOIN package k ON k.id = oi.package_id"
+        " GROUP BY oi.package_name, k.image ORDER BY qty DESC LIMIT 1")
 
     # 近 7 日銷售趨勢
     trend = db.query(
@@ -177,7 +177,8 @@ def order_detail(order_id):
     order["created_at"] = order["created_at"].strftime("%Y-%m-%d %H:%M")
     order["status_label"] = STATUS_LABELS.get(order["status"], order["status"])
     order["items"] = db.query(
-        "SELECT product_name, unit_price, quantity, subtotal FROM order_items WHERE order_id = %s",
+        "SELECT package_name AS product_name, unit_price, quantity, subtotal"
+        " FROM order_items WHERE order_id = %s",
         (order_id,))
     return jsonify(order)
 
