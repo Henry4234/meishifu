@@ -157,29 +157,105 @@ MATERIALS = [
     ("特級低筋麵粉", "麵粉/油脂", "FL-202608", "kg", 120, 40, 38),
     ("烏豆沙", "餡料", "BP-202608", "kg", 30, 15, 160),
     ("典雅禮盒包材", "包材", "BX-202605", "個", 200, 50, 35),
+    # 依實際配方新增;單位成本待採購資料填入 (材料管理可編輯)
+    ("糖粉", "麵粉/油脂", "", "kg", 0, 0, 0),
+    ("細砂糖", "麵粉/油脂", "", "kg", 0, 0, 0),
+    ("水麥芽糖", "麵粉/油脂", "", "kg", 0, 0, 0),
+    ("安佳奶油", "麵粉/油脂", "", "kg", 0, 0, 0),
+    ("動物鮮奶油", "麵粉/油脂", "", "kg", 0, 0, 0),
+    ("全脂奶粉", "其他", "", "kg", 0, 0, 0),
+    ("鹽", "其他", "", "kg", 0, 0, 0),
+    ("泡打粉", "其他", "", "kg", 0, 0, 0),
+    ("全蛋", "其他", "", "顆", 0, 0, 0),
+    ("蛋黃液", "其他", "", "kg", 0, 0, 0),
+    ("金鑽鳳梨餡", "餡料", "", "kg", 0, 0, 0),
+    ("綠豆沙", "餡料", "", "kg", 0, 0, 0),
+    ("夏威夷豆", "堅果", "", "kg", 0, 0, 0),
+    ("腰果", "堅果", "", "kg", 0, 0, 0),
+    ("杏仁果", "堅果", "", "kg", 0, 0, 0),
+    ("核桃", "堅果", "", "kg", 0, 0, 0),
+    ("蔓越莓", "堅果", "", "kg", 0, 0, 0),
 ]
 
 # 單一產品:(名稱, 說明, 分類, 單位)
 PRODUCTS = [
-    ("紅豆蛋黃酥", "萬丹紅豆泥包裹宜蘭紅土鹹蛋黃,層層酥皮手工揉製。", "蛋黃酥", "顆"),
-    ("金沙蛋黃酥", "綿密烏豆沙包裹屏東紅土鹹蛋黃,入口即化。", "蛋黃酥", "顆"),
-    ("金賞鳳梨酥", "在地土鳳梨與金鑽鳳梨黃金比例,酸甜帶纖維感。", "鳳梨酥", "顆"),
-    ("鳳凰酥", "鳳梨餡再加入飽滿鹹蛋黃,鹹甜交織。", "鳳梨酥", "顆"),
-    ("手工方塊酥", "層次分明的奶香酥餅,越嚼越香。", "餅乾", "片"),
+    ("鳳凰酥", "金鑽鳳梨餡包裹飽滿鹹蛋黃,鹹甜交織的絕妙滋味。", "鳳梨酥", "顆"),
+    ("堅果塔", "腰果、核桃、杏仁果與蔓越莓,佐手工奶香塔皮。", "塔類", "個"),
+    ("紅豆蛋黃酥", "烏豆沙與綠豆沙包裹紅土鹹蛋黃,層層酥皮手工揉製。", "蛋黃酥", "顆"),
 ]
 
-# 單品配方:(產品名, 材料名, 每單位用量)
-PRODUCT_BOM = [
-    ("紅豆蛋黃酥", "特級鹹蛋黃", 1), ("紅豆蛋黃酥", "萬丹特選紅豆", 0.05),
-    ("紅豆蛋黃酥", "無水奶油 (法國進口)", 0.02), ("紅豆蛋黃酥", "特級低筋麵粉", 0.05),
-    ("金沙蛋黃酥", "特級鹹蛋黃", 1), ("金沙蛋黃酥", "烏豆沙", 0.05),
-    ("金沙蛋黃酥", "無水奶油 (法國進口)", 0.02), ("金沙蛋黃酥", "特級低筋麵粉", 0.05),
-    ("金賞鳳梨酥", "在地土鳳梨餡", 0.04),
-    ("金賞鳳梨酥", "無水奶油 (法國進口)", 0.015), ("金賞鳳梨酥", "特級低筋麵粉", 0.04),
-    ("鳳凰酥", "在地土鳳梨餡", 0.035), ("鳳凰酥", "特級鹹蛋黃", 1),
-    ("鳳凰酥", "無水奶油 (法國進口)", 0.015), ("鳳凰酥", "特級低筋麵粉", 0.04),
-    ("手工方塊酥", "無水奶油 (法國進口)", 0.008), ("手工方塊酥", "特級低筋麵粉", 0.025),
-]
+# 單品配方 (依實際製作配方表登錄)
+#   yield  : 該批配方可製作的成品數量
+#   items  : (材料名, 該批用量, 計量方式)
+#            "g"        → 公克,換算為材料單位 (kg) 後再除以 yield
+#            "batch"    → 材料本身單位的整批用量,除以 yield
+#            "each"     → 已是「每 1 個成品」的用量,不需除以 yield
+RECIPES = {
+    "鳳凰酥": {
+        "yield": 80,
+        "items": [
+            ("無水奶油 (法國進口)", 720, "g"),
+            ("糖粉", 240, "g"),
+            ("鹽", 5, "g"),
+            ("全蛋", 3, "batch"),          # 3 顆 / 80 個
+            ("全脂奶粉", 100, "g"),
+            ("特級低筋麵粉", 1100, "g"),
+            ("金鑽鳳梨餡", 1500, "g"),
+            ("特級鹹蛋黃", 1, "each"),      # 每顆包 1 個鹹蛋黃
+        ],
+    },
+    "堅果塔": {
+        "yield": 36,
+        "items": [
+            # 內餡
+            ("細砂糖", 60, "g"),
+            ("動物鮮奶油", 75, "g"),
+            ("水麥芽糖", 60, "g"),
+            ("夏威夷豆", 70, "g"),
+            ("腰果", 360, "g"),
+            ("杏仁果", 100, "g"),
+            ("核桃", 120, "g"),
+            ("蔓越莓", 100, "g"),
+            # 塔皮 (安佳奶油 10g 內餡 + 87g 塔皮 = 97g)
+            ("安佳奶油", 97, "g"),
+            ("糖粉", 48, "g"),
+            ("鹽", 1, "g"),
+            ("泡打粉", 0.5, "g"),
+            ("全蛋", 0.7, "batch"),         # 35g ÷ 50g/顆 = 0.7 顆
+            ("特級低筋麵粉", 190, "g"),
+        ],
+    },
+    "紅豆蛋黃酥": {
+        "yield": 50,
+        "items": [
+            ("特級低筋麵粉", 965, "g"),     # 油皮
+            ("糖粉", 240, "g"),
+            ("無水奶油 (法國進口)", 540, "g"),
+            ("烏豆沙", 625, "g"),
+            ("綠豆沙", 625, "g"),
+            ("蛋黃液", 290, "g"),
+            ("動物鮮奶油", 200, "g"),
+            ("特級鹹蛋黃", 1, "each"),
+        ],
+    },
+}
+
+
+def bom_rows(material_units):
+    """把 RECIPES 換算為 (產品名, 材料名, 每 1 單位成品用量)。"""
+    rows = []
+    for product, recipe in RECIPES.items():
+        yield_count = recipe["yield"]
+        for material, amount, mode in recipe["items"]:
+            if mode == "each":
+                qty = amount
+            elif mode == "g":
+                # 材料以 kg 計價時把公克換算為公斤
+                qty = (amount / 1000 if material_units.get(material) == "kg" else amount) / yield_count
+            else:  # batch
+                qty = amount / yield_count
+            rows.append((product, material, round(qty, 6)))
+    return rows
 
 # 禮盒 (販售單位):(名稱, 說明, 規格, 分類, 售價, 圖片, 標籤)
 PACKAGES = [
@@ -200,13 +276,12 @@ PACKAGES = [
 # 禮盒內容:(禮盒名, 單品名, 入數)
 PACKAGE_MAP = [
     ("經典紅豆蛋黃酥禮盒", "紅豆蛋黃酥", 6),
-    ("經典金沙蛋黃酥禮盒", "金沙蛋黃酥", 6),
-    ("金賞鳳梨酥禮盒", "金賞鳳梨酥", 10),
-    ("經典鳳梨鳳凰酥禮盒", "金賞鳳梨酥", 5), ("經典鳳梨鳳凰酥禮盒", "鳳凰酥", 5),
-    ("中秋詠月禮盒", "紅豆蛋黃酥", 2), ("中秋詠月禮盒", "金沙蛋黃酥", 2),
-    ("中秋詠月禮盒", "金賞鳳梨酥", 2), ("中秋詠月禮盒", "鳳凰酥", 2),
-    ("綜合手工禮盒", "金沙蛋黃酥", 3), ("綜合手工禮盒", "金賞鳳梨酥", 3),
-    ("綜合手工禮盒", "手工方塊酥", 4),
+    ("經典金沙蛋黃酥禮盒", "紅豆蛋黃酥", 6),
+    ("金賞鳳梨酥禮盒", "鳳凰酥", 10),
+    ("經典鳳梨鳳凰酥禮盒", "鳳凰酥", 10),
+    ("中秋詠月禮盒", "紅豆蛋黃酥", 4), ("中秋詠月禮盒", "鳳凰酥", 4),
+    ("綜合手工禮盒", "紅豆蛋黃酥", 3), ("綜合手工禮盒", "鳳凰酥", 3),
+    ("綜合手工禮盒", "堅果塔", 4),
 ]
 
 DEFAULT_ADMIN = ("admin", "meishifu2026", "管理員 A", "admin@meishifu.com", "super")
@@ -281,6 +356,94 @@ def migrate_products_to_package(cur):
     mark_migration(cur, name)
 
 
+def migrate_bom_precision(cur):
+    """配方用量原為 DECIMAL(12,3),換算成每 1 單位成品後會小於 0.001 (例:鹽 0.0000625 kg),
+    需提高到 6 位小數才不會被截成 0。"""
+    cur.execute(
+        "SELECT NUMERIC_SCALE AS s FROM information_schema.COLUMNS"
+        " WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'product_materials'"
+        " AND COLUMN_NAME = 'quantity'")
+    row = cur.fetchone()
+    if row and int(row["s"]) < 6:
+        cur.execute("ALTER TABLE product_materials MODIFY COLUMN quantity DECIMAL(14,6) NOT NULL DEFAULT 0")
+        print("  product_materials.quantity 精度提高為 DECIMAL(14,6)")
+
+
+def upsert_materials(cur):
+    """依 MATERIALS 補齊缺少的材料 (已存在者不覆寫庫存與成本)。"""
+    cur.execute("SELECT name FROM materials")
+    existing = {r["name"] for r in cur.fetchall()}
+    new_rows = [m for m in MATERIALS if m[0] not in existing]
+    if new_rows:
+        cur.executemany(
+            "INSERT INTO materials (name, category, batch_no, unit, stock, safety_stock, unit_cost)"
+            " VALUES (%s,%s,%s,%s,%s,%s,%s)", new_rows)
+        print(f"  新增 {len(new_rows)} 筆材料: {', '.join(m[0] for m in new_rows)}")
+
+
+def apply_recipes(cur):
+    """依 PRODUCTS / RECIPES 覆寫單品與配方,並移除不在清單內的舊產品。"""
+    cur.execute("SELECT id, name, unit FROM materials")
+    mats = cur.fetchall()
+    mid = {m["name"]: m["id"] for m in mats}
+    munit = {m["name"]: m["unit"] for m in mats}
+
+    keep = [p[0] for p in PRODUCTS]
+    cur.execute("SELECT id, name FROM products")
+    current = {r["name"]: r["id"] for r in cur.fetchall()}
+
+    # 移除不再需要的單品 (連同其禮盒內容對應)
+    obsolete = [(n, i) for n, i in current.items() if n not in keep]
+    for pname, pid_ in obsolete:
+        cur.execute("SELECT COUNT(*) AS c FROM package_products_map WHERE product_id = %s", (pid_,))
+        used = cur.fetchone()["c"]
+        cur.execute("DELETE FROM package_products_map WHERE product_id = %s", (pid_,))
+        cur.execute("DELETE FROM products WHERE id = %s", (pid_,))
+        print(f"  移除單品「{pname}」" + (f" (同時解除 {used} 筆禮盒內容對應)" if used else ""))
+
+    # 建立或更新保留的單品
+    for name_, desc, category, unit in PRODUCTS:
+        if name_ in current:
+            cur.execute(
+                "UPDATE products SET description = %s, category = %s, unit = %s WHERE id = %s",
+                (desc, category, unit, current[name_]))
+        else:
+            cur.execute(
+                "INSERT INTO products (name, description, category, unit) VALUES (%s,%s,%s,%s)",
+                (name_, desc, category, unit))
+            current[name_] = cur.lastrowid
+            print(f"  新增單品「{name_}」")
+
+    # 覆寫配方
+    for product, material, qty in bom_rows(munit):
+        if product not in current or material not in mid:
+            continue
+        cur.execute(
+            "INSERT INTO product_materials (product_id, material_id, quantity) VALUES (%s,%s,%s)"
+            " ON DUPLICATE KEY UPDATE quantity = VALUES(quantity)",
+            (current[product], mid[material], qty))
+    # 清掉配方裡已不在 RECIPES 的殘留材料
+    for product, recipe in RECIPES.items():
+        if product not in current:
+            continue
+        used_ids = [mid[m] for m, _, _ in recipe["items"] if m in mid]
+        if used_ids:
+            placeholders = ",".join(["%s"] * len(used_ids))
+            cur.execute(
+                f"DELETE FROM product_materials WHERE product_id = %s AND material_id NOT IN ({placeholders})",
+                [current[product]] + used_ids)
+    print(f"  已套用 {len(RECIPES)} 份配方: {', '.join(RECIPES)}")
+
+
+def migrate_recipes(cur):
+    name = "2026_08_real_recipes"
+    if migration_done(cur, name):
+        return
+    upsert_materials(cur)
+    apply_recipes(cur)
+    mark_migration(cur, name)
+
+
 # ---------------------------------------------------------------- 種子
 def seed(cur):
     cur.execute("SELECT COUNT(*) AS c FROM materials")
@@ -298,12 +461,14 @@ def seed(cur):
 
     cur.execute("SELECT id, name FROM products")
     pid = {r["name"]: r["id"] for r in cur.fetchall()}
-    cur.execute("SELECT id, name FROM materials")
-    mid = {r["name"]: r["id"] for r in cur.fetchall()}
+    cur.execute("SELECT id, name, unit FROM materials")
+    mats = cur.fetchall()
+    mid = {r["name"]: r["id"] for r in mats}
+    munit = {r["name"]: r["unit"] for r in mats}
 
     cur.execute("SELECT COUNT(*) AS c FROM product_materials")
     if cur.fetchone()["c"] == 0:
-        rows = [(pid[p], mid[m], q) for p, m, q in PRODUCT_BOM if p in pid and m in mid]
+        rows = [(pid[p], mid[m], q) for p, m, q in bom_rows(munit) if p in pid and m in mid]
         cur.executemany(
             "INSERT INTO product_materials (product_id, material_id, quantity) VALUES (%s,%s,%s)", rows)
         print(f"  已寫入 {len(rows)} 筆單品配方")
@@ -359,6 +524,8 @@ def main():
             migrate_admin_columns(cur)
             migrate_order_items(cur)
             migrate_products_to_package(cur)
+            migrate_bom_precision(cur)
+            migrate_recipes(cur)
             print("寫入種子資料...")
             seed(cur)
         conn.commit()

@@ -120,7 +120,7 @@
 
 <!-- 單品 Modal -->
 <div class="hidden fixed inset-0 z-[100] bg-inverse-surface/40 backdrop-blur-sm items-center justify-center p-md" id="single-modal">
-<div class="bg-surface rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-lg space-y-md">
+<div class="bg-surface rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto p-lg space-y-md">
 <div class="flex justify-between items-start">
 <h2 class="font-headline-md text-headline-md text-on-surface" id="single-modal-title">新增單一產品</h2>
 <button class="text-on-surface-variant hover:text-error p-1" onclick="closeSingleModal()"><span class="material-symbols-outlined">close</span></button>
@@ -131,24 +131,39 @@
 <input class="w-full bg-surface-container-low px-4 py-3 rounded-lg ring-1 ring-tertiary-fixed focus:ring-2 focus:ring-primary outline-none" id="single-name" required type="text"/></div>
 <div><label class="font-label-md text-on-surface block mb-1">說明</label>
 <textarea class="w-full bg-surface-container-low px-4 py-3 rounded-lg ring-1 ring-tertiary-fixed focus:ring-2 focus:ring-primary outline-none" id="single-desc" rows="2"></textarea></div>
-<div class="grid grid-cols-2 gap-sm">
+<div class="grid grid-cols-3 gap-sm">
 <div><label class="font-label-md text-on-surface block mb-1">分類</label>
 <input class="w-full bg-surface-container-low px-4 py-3 rounded-lg ring-1 ring-tertiary-fixed focus:ring-2 focus:ring-primary outline-none" id="single-category" placeholder="蛋黃酥" type="text"/></div>
 <div><label class="font-label-md text-on-surface block mb-1">單位</label>
 <input class="w-full bg-surface-container-low px-4 py-3 rounded-lg ring-1 ring-tertiary-fixed focus:ring-2 focus:ring-primary outline-none" id="single-unit" placeholder="顆" type="text" value="顆"/></div>
+<div><label class="font-label-md text-on-surface block mb-1">每批製作數量</label>
+<input class="w-full bg-surface-container-low px-4 py-3 rounded-lg ring-1 ring-tertiary-fixed focus:ring-2 focus:ring-primary outline-none" id="single-yield" min="1" step="1" title="用於下方「整批用量」的換算,不會存入資料庫" type="number" value="1"/></div>
 </div>
 <div class="bg-surface-container-low rounded-xl p-md space-y-sm">
-<div class="flex items-center justify-between">
-<label class="font-label-md text-primary">材料配方 (每 1 單位用量)</label>
-<button class="text-primary hover:text-secondary font-label-md flex items-center gap-1" onclick="addBomRow()" type="button">
+<div class="flex items-center justify-between flex-wrap gap-sm">
+<label class="font-label-md text-primary">材料配方</label>
+<div class="flex items-center gap-md">
+<span class="font-caption text-on-surface-variant">依「每批製作數量」換算,可直接填整批用量</span>
+<button class="text-primary hover:text-secondary font-label-md flex items-center gap-1 shrink-0" onclick="addBomRow()" type="button">
 <span class="material-symbols-outlined text-[18px]">add</span>加入材料
 </button>
 </div>
+</div>
+<!-- 欄位標題 -->
+<div class="flex items-center gap-sm font-caption text-on-surface-variant">
+<span class="flex-1 min-w-0">材料</span>
+<span class="w-32 shrink-0 text-right">每 1 單位用量</span>
+<span class="w-14 shrink-0">單位</span>
+<span class="w-32 shrink-0 text-right">整批用量</span>
+<span class="w-24 shrink-0 text-right">成本</span>
+<span class="w-8 shrink-0"></span>
+</div>
 <div class="space-y-xs" id="single-bom"></div>
 <div class="flex items-center justify-between pt-sm border-t border-outline-variant/30">
-<span class="font-body-md text-on-surface-variant">單位成本</span>
+<span class="font-body-md text-on-surface-variant">單位成本 (每 1 個成品)</span>
 <span class="font-headline-md text-primary" id="single-cost-preview">NT$ 0</span>
 </div>
+<p class="font-caption text-on-surface-variant" id="single-cost-note"></p>
 </div>
 <p class="hidden text-error font-body-md" id="single-error"></p>
 <button class="w-full py-3 bg-primary text-on-primary font-label-md rounded-full shadow-md hover:shadow-lg transition-all" type="submit">儲存</button>
@@ -298,8 +313,22 @@ function updatePkgCost() {
   document.getElementById("pkg-cost-preview").textContent = "NT$ " + Math.round(cost * 10) / 10;
 }
 
+/* 包材下拉:只列「不使用包材」與分類為包材的材料。
+   若禮盒目前綁定的材料不屬於包材分類 (例如分類被改過),仍保留該選項避免存檔時被靜默清空。 */
+function fillPackagingOptions(selectedId) {
+  const list = materials.filter((m) => m.category === "包材");
+  if (selectedId && !list.some((m) => m.id === Number(selectedId))) {
+    const cur = materials.find((m) => m.id === Number(selectedId));
+    if (cur) list.unshift(cur);
+  }
+  document.getElementById("pkg-packaging").innerHTML =
+    '<option value="">(不使用包材)</option>' +
+    list.map((m) => `<option value="${m.id}">${m.name}${m.unit_cost ? ` — NT$ ${m.unit_cost}/${m.unit}` : "  (未設定單價)"}</option>`).join("");
+}
+
 function openPkgModal(id) {
   const p = packages.find((x) => x.id === id);
+  fillPackagingOptions(p && p.packaging_material_id);
   document.getElementById("pkg-modal-title").textContent = p ? "編輯禮盒" : "新增禮盒";
   document.getElementById("pkg-id").value = p ? p.id : "";
   document.getElementById("pkg-name").value = p ? p.name : "";
@@ -344,6 +373,7 @@ document.getElementById("pkg-image").addEventListener("change", (e) => {
 });
 ["pkg-packaging", "pkg-packaging-qty"].forEach((id) =>
   document.getElementById(id).addEventListener("input", updatePkgCost));
+document.getElementById("single-yield").addEventListener("input", updateSingleCost);
 
 document.getElementById("pkg-form").addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -384,7 +414,7 @@ function renderProducts() {
       <td class="py-4 px-6">
         <div class="flex flex-wrap gap-1">
           ${p.materials.length
-            ? p.materials.map((m) => `<span class="px-2 py-1 rounded-full bg-surface-container text-on-surface-variant font-caption">${m.name} ${m.quantity}${m.unit}</span>`).join("")
+            ? p.materials.map((m) => `<span class="px-2 py-1 rounded-full bg-surface-container text-on-surface-variant font-caption whitespace-nowrap">${m.name} ${fmtAmount(m.quantity, m.unit)}</span>`).join("")
             : '<span class="text-error font-caption">尚未設定配方</span>'}
         </div>
       </td>
@@ -396,15 +426,28 @@ function renderProducts() {
     </tr>`).join("");
 }
 
+/* 小數量以 g 呈現比較好讀 (材料單位為 kg 時) */
+function fmtAmount(qty, unit) {
+  if (unit === "kg" && qty > 0 && qty < 1) {
+    const g = qty * 1000;
+    return (g < 10 ? g.toFixed(2) : g.toFixed(1)).replace(/\.?0+$/, "") + " g";
+  }
+  return (Math.round(qty * 1e6) / 1e6) + " " + unit;
+}
+
 function bomRowHtml(materialId, qty) {
   const opts = materials.map((m) =>
-    `<option value="${m.id}" ${m.id === materialId ? "selected" : ""}>${m.name} (NT$ ${m.unit_cost}/${m.unit})</option>`).join("");
+    `<option value="${m.id}" ${m.id === materialId ? "selected" : ""}>${m.name}${m.unit_cost ? ` — NT$ ${m.unit_cost}/${m.unit}` : "  (未設定單價)"}</option>`).join("");
+  const mat = materials.find((m) => m.id === materialId) || materials[0];
   return `
     <div class="bom-row flex items-center gap-sm">
-      <select class="bom-material flex-grow bg-surface px-3 py-2 rounded-lg ring-1 ring-tertiary-fixed focus:ring-2 focus:ring-primary outline-none">${opts}</select>
-      <input class="bom-qty w-28 bg-surface px-3 py-2 rounded-lg ring-1 ring-tertiary-fixed focus:ring-2 focus:ring-primary outline-none" min="0" step="0.001" type="number" value="${qty}"/>
-      <button class="text-on-surface-variant hover:text-error p-1" onclick="this.closest('.bom-row').remove(); updateSingleCost()" type="button">
-        <span class="material-symbols-outlined text-[20px]">delete</span>
+      <select class="bom-material flex-1 min-w-0 bg-surface px-3 py-2 rounded-lg ring-1 ring-tertiary-fixed focus:ring-2 focus:ring-primary outline-none truncate">${opts}</select>
+      <input class="bom-qty w-32 shrink-0 bg-surface px-3 py-2 rounded-lg ring-1 ring-tertiary-fixed focus:ring-2 focus:ring-primary outline-none text-right" min="0" step="any" type="number" value="${qty}"/>
+      <span class="bom-unit w-14 shrink-0 font-caption text-on-surface-variant">${mat ? mat.unit : ""}</span>
+      <span class="bom-batch w-32 shrink-0 font-caption text-on-surface-variant text-right"></span>
+      <span class="bom-cost w-24 shrink-0 font-label-md text-on-surface text-right"></span>
+      <button class="w-8 shrink-0 text-on-surface-variant hover:text-error" onclick="this.closest('.bom-row').remove(); updateSingleCost()" type="button">
+        <span class="material-symbols-outlined text-[20px] pointer-events-none">delete</span>
       </button>
     </div>`;
 }
@@ -412,7 +455,7 @@ function bomRowHtml(materialId, qty) {
 function addBomRow(materialId, qty) {
   if (!materials.length) { adminToast("請先於材料管理建立材料", true); return; }
   const box = document.getElementById("single-bom");
-  box.insertAdjacentHTML("beforeend", bomRowHtml(materialId || materials[0].id, qty != null ? qty : 0.1));
+  box.insertAdjacentHTML("beforeend", bomRowHtml(materialId || materials[0].id, qty != null ? qty : 0));
   box.querySelectorAll("select, input").forEach((el) => el.oninput = updateSingleCost);
   updateSingleCost();
 }
@@ -425,11 +468,26 @@ function collectBom() {
 }
 
 function updateSingleCost() {
-  const cost = collectBom().reduce((sum, b) => {
-    const m = materials.find((x) => x.id === b.material_id);
-    return sum + (m ? m.unit_cost * b.quantity : 0);
-  }, 0);
+  const yieldCount = Math.max(Number(document.getElementById("single-yield").value) || 1, 1);
+  let cost = 0;
+  let missingPrice = 0;
+  document.querySelectorAll(".bom-row").forEach((row) => {
+    const mid = Number(row.querySelector(".bom-material").value);
+    const qty = Number(row.querySelector(".bom-qty").value) || 0;
+    const m = materials.find((x) => x.id === mid);
+    row.querySelector(".bom-unit").textContent = m ? m.unit : "";
+    row.querySelector(".bom-batch").textContent = m ? fmtAmount(qty * yieldCount, m.unit) : "";
+    const rowCost = m ? m.unit_cost * qty : 0;
+    row.querySelector(".bom-cost").textContent = m && m.unit_cost
+      ? "NT$ " + (Math.round(rowCost * 100) / 100)
+      : "—";
+    if (m && !m.unit_cost && qty > 0) missingPrice += 1;
+    cost += rowCost;
+  });
   document.getElementById("single-cost-preview").textContent = "NT$ " + Math.round(cost * 100) / 100;
+  document.getElementById("single-cost-note").textContent = missingPrice
+    ? `※ 有 ${missingPrice} 項材料尚未設定單價,成本尚未完整,請至材料管理補上。`
+    : "";
 }
 
 function openSingleModal(id) {
@@ -440,6 +498,7 @@ function openSingleModal(id) {
   document.getElementById("single-desc").value = p ? p.description : "";
   document.getElementById("single-category").value = p ? p.category : "";
   document.getElementById("single-unit").value = p ? p.unit : "顆";
+  document.getElementById("single-yield").value = 1;   // 換算輔助用,預設 1
   document.getElementById("single-bom").innerHTML = "";
   (p ? p.materials : []).forEach((m) => addBomRow(m.material_id, m.quantity));
   updateSingleCost();
@@ -495,9 +554,7 @@ async function loadAll() {
     packages = pk.packages;
     products = pr.products;
     materials = mt.materials;
-    document.getElementById("pkg-packaging").innerHTML =
-      '<option value="">(不使用包材)</option>' +
-      materials.map((m) => `<option value="${m.id}">${m.name} (NT$ ${m.unit_cost}/${m.unit})</option>`).join("");
+    fillPackagingOptions();
     renderPackages();
     renderProducts();
   } catch (err) {
