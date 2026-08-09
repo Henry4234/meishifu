@@ -42,18 +42,39 @@ def list_packages():
     return jsonify({"packages": packages})
 
 
-@shop_bp.get("/packages/<int:pkg_id>")
-def get_package(pkg_id):
+def _fetch_package(pkg_id):
+    """從 package 表撈單一禮盒基本資料 + 內容物,查無或已下架回傳 None。"""
     row = db.query_one(
         f"SELECT {PACKAGE_FIELDS} FROM package WHERE id = %s AND is_active = 1", (pkg_id,))
     if not row:
-        return jsonify({"error": "package not found"}), 404
+        return None
     row["items"] = [
-        {"name": c["name"], "quantity": float(c["quantity"])}
+        {"name": c["name"], "unit": c["unit"], "quantity": float(c["quantity"])}
         for c in db.query(
-            "SELECT p.name, m.quantity FROM package_products_map m"
-            " JOIN products p ON p.id = m.product_id WHERE m.package_id = %s", (pkg_id,))
+            "SELECT p.name, p.unit, m.quantity FROM package_products_map m"
+            " JOIN products p ON p.id = m.product_id WHERE m.package_id = %s ORDER BY m.id", (pkg_id,))
     ]
+    return row
+
+
+@shop_bp.get("/package")
+def get_package_by_param():
+    """商品介紹頁用:GET /api/package?product_id=<id>"""
+    try:
+        pkg_id = int(request.args.get("product_id", ""))
+    except ValueError:
+        return jsonify({"error": "請提供有效的 product_id"}), 400
+    row = _fetch_package(pkg_id)
+    if not row:
+        return jsonify({"error": "查無此商品或已下架"}), 404
+    return jsonify(row)
+
+
+@shop_bp.get("/packages/<int:pkg_id>")
+def get_package(pkg_id):
+    row = _fetch_package(pkg_id)
+    if not row:
+        return jsonify({"error": "package not found"}), 404
     return jsonify(row)
 
 

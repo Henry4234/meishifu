@@ -51,28 +51,35 @@ function renderProducts() {
   else if (sort === "price-desc") list.sort((a, b) => b.price - a.price);
   else if (sort === "newest") list.sort((a, b) => b.id - a.id);
   document.getElementById("product-count").textContent = `顯示 ${list.length} 項商品`;
-  grid.innerHTML = list.map((p) => `
+  grid.innerHTML = list.map((p) => {
+    const link = `product.html?product_id=${p.id}`;
+    return `
     <article class="group bg-surface-container-lowest rounded-2xl overflow-hidden flex flex-col shadow-[0_4px_24px_rgba(157,129,137,0.05)] hover:shadow-[0_12px_40px_rgba(157,129,137,0.1)] transition-all duration-300 transform hover:-translate-y-1">
-      <div class="relative w-full aspect-square overflow-hidden bg-surface-container">
+      <a class="relative block w-full aspect-square overflow-hidden bg-surface-container" href="${link}">
         <img alt="${p.name}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700 ease-out" loading="lazy" src="..${p.image}"/>
         ${p.tag ? `<div class="absolute top-4 left-4 flex gap-2"><span class="bg-primary-container text-on-primary-container font-caption px-3 py-1 rounded-full backdrop-blur-md bg-opacity-90">${p.tag}</span></div>` : ""}
-      </div>
+      </a>
       <div class="p-md flex flex-col flex-grow">
-        <h2 class="font-headline-md text-on-surface mb-2 line-clamp-1">${p.name}</h2>
-        <p class="font-body-md text-on-surface-variant mb-md flex-grow line-clamp-2">${p.description}</p>
+        <a class="block flex-grow" href="${link}">
+          <h2 class="font-headline-md text-on-surface mb-2 line-clamp-1 group-hover:text-primary transition-colors">${p.name}</h2>
+          <p class="font-body-md text-on-surface-variant mb-md line-clamp-2">${p.description}</p>
+        </a>
         <div class="flex items-end justify-between mt-auto">
-          <div>
+          <a class="block" href="${link}">
             <span class="font-caption text-on-surface-variant block mb-1">${p.spec}</span>
             <span class="font-headline-md text-primary tracking-tight">${formatPrice(p.price)}</span>
-          </div>
+          </a>
           <button aria-label="加入購物車" class="add-btn w-10 h-10 rounded-full bg-surface-container-highest hover:bg-primary hover:text-on-primary text-primary flex items-center justify-center transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-primary/20" data-id="${p.id}">
-            <span class="material-symbols-outlined text-[20px]">add_shopping_cart</span>
+            <span class="material-symbols-outlined text-[20px] pointer-events-none">add_shopping_cart</span>
           </button>
         </div>
       </div>
-    </article>`).join("");
+    </article>`;
+  }).join("");
   grid.querySelectorAll(".add-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();      // 避免連帶觸發卡片連結
+      e.stopPropagation();
       const p = allProducts.find((x) => x.id === Number(btn.dataset.id));
       if (p) addToCart(p);
     });

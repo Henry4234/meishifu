@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="zh-TW"><head><meta charset="utf-8"/><meta content="width=device-width, initial-scale=1.0" name="viewport"/><title>商品介紹 | 美師傅 meishifu</title><style>@layer base{html,body{margin:0;padding:0;}body{overscroll-behavior:none;}main>:first-child{margin-top:0!important;}main>:last-child{margin-bottom:0!important;}}::-webkit-scrollbar{display:none;}</style><script src="https://cdn.tailwindcss.com"></script><script id="tailwind-config">tailwind.config={theme:{extend:{"colors":{"surface-dim":"#ffcdd7","on-error":"#ffffff","outline":"#807477","tertiary-container":"#6d7772","surface-container":"#ffe8eb","tertiary-fixed":"#dbe5df","on-primary":"#ffffff","surface-container-high":"#ffe1e5","on-tertiary-fixed-variant":"#3f4945","on-error-container":"#93000a","error":"#ba1a1a","tertiary":"#545e5a","outline-variant":"#d1c3c6","primary-container":"#886e75","secondary":"#874e58","on-background":"#30121a","error-container":"#ffdad6","surface-bright":"#fff8f7","on-surface":"#30121a","inverse-on-surface":"#ffecee","on-surface-variant":"#4e4447","on-primary-fixed":"#29161d","on-secondary-container":"#7b444e","tertiary-fixed-dim":"#bfc9c3","on-tertiary":"#ffffff","inverse-surface":"#48262e","surface-tint":"#71585f","inverse-primary":"#debec7","secondary-fixed":"#ffd9de","on-tertiary-container":"#f5fff9","surface-container-low":"#fff0f1","surface":"#fff8f7","secondary-container":"#ffb6c1","primary-fixed-dim":"#debec7","surface-container-highest":"#ffd9df","surface-container-lowest":"#ffffff","primary":"#6e555d","secondary-fixed-dim":"#fcb3be","on-secondary":"#ffffff","on-primary-fixed-variant":"#574148","background":"#fff8f7","on-tertiary-fixed":"#151d1a","on-primary-container":"#fffbff","on-secondary-fixed-variant":"#6b3741","primary-fixed":"#fbdae3","surface-variant":"#ffd9df","on-secondary-fixed":"#360c17"},"borderRadius":{"DEFAULT":"0.25rem","lg":"0.5rem","xl":"0.75rem","full":"9999px"},"spacing":{"lg":"48px","base":"8px","sm":"12px","margin-mobile":"20px","xl":"80px","gutter":"24px","md":"24px","xs":"4px","margin-desktop":"64px"},"fontFamily":{"body-lg":["Plus Jakarta Sans"],"display":["Playfair Display"],"label-md":["Plus Jakarta Sans"],"caption":["Plus Jakarta Sans"],"body-md":["Plus Jakarta Sans"],"headline-md":["Playfair Display"],"headline-lg":["Playfair Display"],"headline-lg-mobile":["Playfair Display"]},"fontSize":{"body-lg":["18px",{"lineHeight":"1.6","fontWeight":"400"}],"display":["48px",{"lineHeight":"1.2","letterSpacing":"-0.02em","fontWeight":"700"}],"label-md":["14px",{"lineHeight":"1.4","letterSpacing":"0.05em","fontWeight":"600"}],"caption":["12px",{"lineHeight":"1.4","fontWeight":"500"}],"body-md":["16px",{"lineHeight":"1.6","fontWeight":"400"}],"headline-md":["24px",{"lineHeight":"1.4","fontWeight":"600"}],"headline-lg":["32px",{"lineHeight":"1.3","fontWeight":"600"}],"headline-lg-mobile":["28px",{"lineHeight":"1.3","fontWeight":"600"}]}}}}</script>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@100..900&amp;family=Plus+Jakarta+Sans:wght@100..900&amp;display=swap" rel="stylesheet"/>
+<script src="js/site.js"></script>
+<script defer src="js/animate.js"></script></head><body class="bg-surface font-body-md text-on-surface antialiased"><header class="fixed top-0 w-full z-50 bg-surface/80 backdrop-blur-xl shadow-[0_4px_24px_rgba(157,129,137,0.05)]"><div class="h-20 max-w-[1440px] mx-auto px-margin-mobile lg:px-margin-desktop flex items-center justify-between"><a class="flex items-center gap-4" href="index.html"><img alt="美師傅 Logo" class="h-10 w-auto object-contain" src="../assets/logo.png"/><span class="font-display text-headline-md text-primary tracking-tight">美師傅 meishifu</span></a><nav class="hidden lg:flex items-center gap-gutter h-full"><a class="font-label-md text-on-surface-variant hover:text-secondary transition-all py-1" href="index.html">首頁</a><a aria-current="page" class="font-label-md transition-all py-1 text-secondary border-b-2 border-secondary" href="products.html">精選商品</a><a class="font-label-md text-on-surface-variant hover:text-secondary transition-all py-1" href="about.html">關於美師傅</a><a class="font-label-md text-on-surface-variant hover:text-secondary transition-all py-1" href="news.html">最新消息</a><a class="font-label-md text-on-surface-variant hover:text-secondary transition-all py-1" href="faq.html">常見問題</a></nav><div class="flex items-center gap-6"><a class="relative group" href="cart.html"><span class="material-symbols-outlined text-on-surface-variant group-hover:text-secondary transition-colors">shopping_cart</span><span class="hidden absolute -top-2 -right-2 bg-secondary text-on-secondary text-[10px] font-bold rounded-full w-4 h-4 flex items-center justify-center" id="cart-count">0</span></a><div class="w-8 h-8 rounded-full bg-primary flex items-center justify-center"><span class="material-symbols-outlined text-on-primary text-[18px]">person</span></div></div></div></header><main class="w-full pt-20 bg-surface">
+<div class="flex flex-col w-full bg-surface relative overflow-hidden">
+<div class="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-secondary-container/20 rounded-full blur-[120px] pointer-events-none"></div>
+<div class="absolute bottom-[-10%] right-[-5%] w-[40%] h-[40%] bg-primary-container/15 rounded-full blur-[100px] pointer-events-none"></div>
+
+<!-- 載入 / 錯誤狀態 -->
+<div class="max-w-[1440px] mx-auto px-margin-mobile lg:px-margin-desktop py-xl relative z-10" id="state-box">
+<p class="font-body-lg text-on-surface-variant">商品載入中...</p>
+</div>
+
+<!-- 商品主體 (載入後顯示) -->
+<div class="hidden" id="detail-box">
+<section class="w-full max-w-[1440px] mx-auto px-margin-mobile lg:px-margin-desktop pt-lg pb-xl relative z-10">
+<div class="mb-md">
+<nav class="flex items-center gap-xs font-label-md text-on-surface-variant flex-wrap">
+<a class="hover:text-primary transition-colors" href="index.html">首頁</a>
+<span class="material-symbols-outlined text-[16px]">chevron_right</span>
+<a class="hover:text-primary transition-colors" href="products.html">精選商品</a>
+<span class="material-symbols-outlined text-[16px]">chevron_right</span>
+<span class="text-on-surface" id="bc-name"></span>
+</nav>
+</div>
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-md lg:gap-xl items-start">
+<!-- 左:商品照片 -->
+<div class="lg:col-span-7 flex flex-col gap-sm group">
+<div class="relative w-full aspect-[4/3] rounded-2xl overflow-hidden bg-surface-container shadow-[0_8px_32px_rgba(157,129,137,0.08)]">
+<img alt="" class="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105" id="main-image"/>
+<div class="absolute inset-0 ring-1 ring-inset ring-outline-variant/30 rounded-2xl pointer-events-none"></div>
+<div class="absolute top-md left-md flex gap-sm" id="tag-box"></div>
+</div>
+</div>
+<!-- 右:商品資訊 -->
+<div class="lg:col-span-5 flex flex-col pt-md lg:pt-lg lg:sticky lg:top-32">
+<div class="flex flex-col gap-base border-b border-outline-variant/30 pb-lg">
+<h1 class="font-display text-display text-on-surface" id="p-name"></h1>
+<p class="font-headline-md text-secondary tracking-wide" id="p-category"></p>
+<p class="font-display text-headline-lg text-on-surface mt-sm">
+<span id="p-price"></span>
+<span class="font-body-md text-on-surface-variant font-normal" id="p-spec"></span>
+</p>
+</div>
+<div class="py-lg border-b border-outline-variant/30">
+<p class="font-body-lg text-on-surface-variant leading-relaxed" id="p-desc"></p>
+<!-- 禮盒內容物 (來自 package_products_map) -->
+<div class="mt-md hidden" id="items-box">
+<h3 class="font-label-md text-primary tracking-wider uppercase mb-sm">禮盒內容</h3>
+<ul class="space-y-xs font-body-md text-on-surface-variant" id="items-list"></ul>
+</div>
+<div class="flex flex-wrap gap-sm mt-md">
+<span class="px-md py-sm bg-surface-container-high text-on-surface font-label-md rounded-full shadow-[0_2px_8px_rgba(157,129,137,0.04)]">手工製作</span>
+<span class="px-md py-sm bg-surface-container-high text-on-surface font-label-md rounded-full shadow-[0_2px_8px_rgba(157,129,137,0.04)]">嚴選食材</span>
+<span class="px-md py-sm bg-surface-container-high text-on-surface font-label-md rounded-full shadow-[0_2px_8px_rgba(157,129,137,0.04)]">蛋奶素</span>
+</div>
+</div>
+<div class="py-lg flex flex-col gap-md">
+<div class="flex items-center justify-between">
+<label class="font-label-md text-on-surface-variant tracking-wider uppercase" for="qty">數量</label>
+<div class="flex items-center bg-surface-container-lowest rounded-full ring-1 ring-outline-variant/50 p-xs shadow-[0_2px_8px_rgba(157,129,137,0.03)]">
+<button aria-label="減少數量" class="w-10 h-10 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container transition-colors" id="qty-minus" type="button">
+<span class="material-symbols-outlined text-[20px] pointer-events-none">remove</span>
+</button>
+<input class="w-12 text-center bg-transparent border-none font-body-lg text-on-surface focus:outline-none [appearance:textfield] [&amp;::-webkit-outer-spin-button]:appearance-none [&amp;::-webkit-inner-spin-button]:appearance-none" id="qty" max="99" min="1" type="number" value="1"/>
+<button aria-label="增加數量" class="w-10 h-10 flex items-center justify-center rounded-full text-on-surface-variant hover:bg-surface-container transition-colors" id="qty-plus" type="button">
+<span class="material-symbols-outlined text-[20px] pointer-events-none">add</span>
+</button>
+</div>
+</div>
+<div class="flex flex-col sm:flex-row gap-sm mt-sm">
+<button class="flex-1 py-md px-lg bg-primary text-on-primary font-label-md rounded-full hover:shadow-[0_4px_16px_rgba(157,129,137,0.25)] hover:scale-[1.02] transition-all flex items-center justify-center gap-sm" id="add-cart-btn" type="button">
+<span class="material-symbols-outlined text-[20px]">shopping_bag</span>
+          加入購物車
+        </button>
+<a class="sm:flex-none py-md px-lg bg-surface-container-high text-on-surface font-label-md rounded-full hover:bg-surface-container-highest transition-colors text-center" href="products.html">返回</a>
+</div>
+<div class="flex items-center gap-xs text-on-surface-variant mt-sm justify-center sm:justify-start">
+<span class="material-symbols-outlined text-[16px] text-tertiary">local_shipping</span>
+<span class="font-caption">宅配訂單滿 NT$ 2,000 免運費</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- 規格與保存 -->
+<section class="w-full bg-surface-container-lowest py-xl border-t border-outline-variant/20 relative">
+<div class="max-w-[1024px] mx-auto px-margin-mobile lg:px-margin-desktop grid grid-cols-1 md:grid-cols-2 gap-lg md:gap-xl">
+<div class="flex flex-col gap-md">
+<div class="flex items-center gap-sm mb-sm">
+<div class="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-on-primary-container" style="font-variation-settings: 'FILL' 1;">info</span>
+</div>
+<h3 class="font-display text-headline-md text-on-surface">產品規格</h3>
+</div>
+<div class="space-y-0">
+<div class="flex justify-between py-sm border-b border-outline-variant/30">
+<span class="font-label-md text-on-surface-variant">商品分類</span>
+<span class="font-body-md text-on-surface text-right" id="spec-category"></span>
+</div>
+<div class="flex justify-between py-sm border-b border-outline-variant/30">
+<span class="font-label-md text-on-surface-variant">包裝規格</span>
+<span class="font-body-md text-on-surface text-right" id="spec-spec"></span>
+</div>
+<div class="flex justify-between py-sm border-b border-outline-variant/30">
+<span class="font-label-md text-on-surface-variant">產地</span>
+<span class="font-body-md text-on-surface text-right">台灣</span>
+</div>
+<div class="flex justify-between py-sm border-b border-outline-variant/30">
+<span class="font-label-md text-on-surface-variant">過敏原</span>
+<span class="font-body-md text-on-surface text-right max-w-[60%]">本產品含有蛋、奶類、麩質穀物,不適合對其過敏體質者食用</span>
+</div>
+</div>
+</div>
+<div class="flex flex-col gap-md">
+<div class="flex items-center gap-sm mb-sm">
+<div class="w-10 h-10 rounded-full bg-secondary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-on-secondary-container" style="font-variation-settings: 'FILL' 1;">inventory_2</span>
+</div>
+<h3 class="font-display text-headline-md text-on-surface">保存方式</h3>
+</div>
+<div class="bg-surface-container rounded-2xl p-md shadow-[0_4px_24px_rgba(157,129,137,0.04)] relative overflow-hidden">
+<div class="absolute -right-8 -top-8 w-32 h-32 bg-primary/5 rounded-full blur-2xl"></div>
+<ul class="space-y-md font-body-md text-on-surface-variant relative z-10">
+<li class="flex gap-sm items-start">
+<span class="material-symbols-outlined text-primary mt-1 text-[20px]">check_circle</span>
+<span><strong>常溫保存:</strong> 陰涼乾燥處,避免陽光直射,保存期限 7 天。</span>
+</li>
+<li class="flex gap-sm items-start">
+<span class="material-symbols-outlined text-primary mt-1 text-[20px]">check_circle</span>
+<span><strong>冷藏保存:</strong> 若未能於期限內食用完畢,可冷藏保存至 14 天。</span>
+</li>
+<li class="flex gap-sm items-start">
+<span class="material-symbols-outlined text-primary mt-1 text-[20px]">check_circle</span>
+<span><strong>美味秘訣:</strong> 冷藏後取出,建議放入烤箱以 150 度稍微烘烤 3-5 分鐘,外皮更酥脆。</span>
+</li>
+</ul>
+</div>
+</div>
+</div>
+</section>
+</div>
+</div></main><footer class="w-full bg-surface-container py-xl"><div class="max-w-[1440px] mx-auto px-margin-mobile lg:px-margin-desktop"><div class="grid grid-cols-1 md:grid-cols-3 gap-lg mb-lg"><div class="space-y-md"><img alt="美師傅 Logo" class="h-8 w-auto" src="../assets/logo.png"/><p class="font-body-md text-on-surface-variant pr-md">承襲傳統工藝,揉合現代美學。每一顆蛋黃酥都是一份溫暖的心意。</p></div><div class="space-y-md"><h4 class="font-headline-md text-on-surface">聯絡資訊</h4><ul class="space-y-xs font-body-md text-on-surface-variant"><li>台北市大安區手工藝路 123 號</li><li>(02) 2345-6789</li><li>service@meishifu.com</li></ul></div><div class="space-y-md"><h4 class="font-headline-md text-on-surface">關注我們</h4><div class="flex gap-md"><span class="material-symbols-outlined text-on-surface-variant hover:text-secondary cursor-pointer transition-colors">share</span><span class="material-symbols-outlined text-on-surface-variant hover:text-secondary cursor-pointer transition-colors">public</span><span class="material-symbols-outlined text-on-surface-variant hover:text-secondary cursor-pointer transition-colors">mail</span></div></div></div><div class="border-t border-outline-variant pt-md flex flex-col md:flex-row justify-between items-center gap-md"><p class="font-caption text-on-surface-variant">© 2026 美師傅 Meishifu Bakery. All rights reserved.</p><nav class="flex gap-md"><a class="font-caption text-on-surface-variant hover:text-secondary" href="#">服務條款</a><a class="font-caption text-on-surface-variant hover:text-secondary" href="#">隱私政策</a></nav></div></div></footer>
+<script>
+let currentPackage = null;
+
+function showError(msg) {
+  document.getElementById("state-box").innerHTML = `
+    <div class="flex flex-col items-start gap-md">
+      <p class="font-headline-md text-on-surface">${msg}</p>
+      <a class="inline-flex items-center gap-xs px-lg py-sm bg-primary text-on-primary font-label-md rounded-full hover:shadow-md transition-all" href="products.html">
+        <span class="material-symbols-outlined text-[18px]">arrow_back</span> 回到精選商品
+      </a>
+    </div>`;
+}
+
+function clampQty() {
+  const input = document.getElementById("qty");
+  let v = parseInt(input.value, 10);
+  if (!Number.isFinite(v)) v = 1;
+  input.value = Math.min(Math.max(v, 1), 99);
+  return Number(input.value);
+}
+
+function render(pkg) {
+  currentPackage = pkg;
+  document.title = `${pkg.name} | 美師傅 meishifu`;
+  document.getElementById("bc-name").textContent = pkg.name;
+  document.getElementById("p-name").textContent = pkg.name;
+  document.getElementById("p-category").textContent = pkg.category || "";
+  document.getElementById("p-price").textContent = formatPrice(pkg.price);
+  document.getElementById("p-spec").textContent = pkg.spec ? ` / ${pkg.spec}` : "";
+  document.getElementById("p-desc").textContent = pkg.description || "";
+  document.getElementById("spec-category").textContent = pkg.category || "-";
+  document.getElementById("spec-spec").textContent = pkg.spec || "-";
+
+  const img = document.getElementById("main-image");
+  if (pkg.image) { img.src = ".." + pkg.image; img.alt = pkg.name; }
+  else { img.remove(); }
+
+  if (pkg.tag) {
+    document.getElementById("tag-box").innerHTML =
+      `<span class="px-sm py-xs bg-surface/90 backdrop-blur-sm rounded-full font-label-md text-primary tracking-wider shadow-sm">${pkg.tag}</span>`;
+  }
+
+  // 禮盒內容物 (有設定才顯示)
+  if (pkg.items && pkg.items.length) {
+    document.getElementById("items-box").classList.remove("hidden");
+    document.getElementById("items-list").innerHTML = pkg.items.map((i) => `
+      <li class="flex items-center gap-sm">
+        <span class="material-symbols-outlined text-[18px] text-secondary">bakery_dining</span>
+        <span>${i.name}</span>
+        <span class="text-on-surface font-label-md">× ${i.quantity} ${i.unit || ""}</span>
+      </li>`).join("");
+  }
+
+  document.getElementById("state-box").classList.add("hidden");
+  document.getElementById("detail-box").classList.remove("hidden");
+}
+
+/* 數量增減 */
+document.getElementById("qty-minus").addEventListener("click", () => {
+  document.getElementById("qty").value = Math.max(clampQty() - 1, 1);
+});
+document.getElementById("qty-plus").addEventListener("click", () => {
+  document.getElementById("qty").value = Math.min(clampQty() + 1, 99);
+});
+document.getElementById("qty").addEventListener("change", clampQty);
+
+/* 加入購物車:傳入完整禮盒物件與數量 (site.js addToCart 需 id/name/spec/price/image) */
+document.getElementById("add-cart-btn").addEventListener("click", () => {
+  if (!currentPackage) return;
+  addToCart(currentPackage, clampQty());
+});
+
+/* 依網址 ?product_id= 載入 */
+const productId = new URLSearchParams(location.search).get("product_id");
+if (!productId) {
+  showError("找不到商品編號,請從精選商品頁面進入。");
+} else {
+  getPackage(productId)
+    .then(render)
+    .catch((err) => showError(`無法載入商品:${err.message}`));
+}
+</script></body></html>

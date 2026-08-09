@@ -21,6 +21,11 @@ async function apiPost(path, body) {
   return data;
 }
 
+/* 取得單一禮盒資料 (商品介紹頁用),對應後端 GET /api/package?product_id= */
+async function getPackage(productId) {
+  return apiGet("/package?product_id=" + encodeURIComponent(productId));
+}
+
 /* ---------- 購物車 ---------- */
 function getCart() {
   try { return JSON.parse(localStorage.getItem(CART_KEY)) || []; }
