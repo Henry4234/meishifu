@@ -93,7 +93,8 @@ python -m http.server 5500
 | POST | /api/admin/login | 登入,回傳 JWT (含角色) |
 | GET | /api/admin/dashboard | 儀表板統計 |
 | GET/GET/PATCH | /api/admin/orders … /:id/status | 訂單列表/詳情/狀態更新 |
-| GET/POST/PATCH/DELETE | /api/admin/materials … /:id | 材料 CRUD (含需求預估與狀態) |
+| GET/POST/PATCH | /api/admin/materials … /:id | 材料查詢與新增/編輯 (含需求預估與狀態) |
+| DELETE | /api/admin/materials/:id | 刪除材料;仍被配方或禮盒包材使用時回 400 並列出使用處 |
 | POST | /api/admin/materials/:id/purchase | 採購入庫 (更新庫存與最新進價) |
 | GET | /api/admin/products | 單一產品 + 配方 + 單位成本 |
 | POST/PATCH/DELETE | /api/admin/products … /:id | 單品 CRUD (`materials` 陣列整批覆寫配方) |

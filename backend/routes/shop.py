@@ -15,30 +15,57 @@ from routes.payment import build_payment_payload
 
 shop_bp = Blueprint("shop", __name__)
 
-PACKAGE_FIELDS = "id, name, description, spec, category, price, image, tag"
+PACKAGE_FIELDS = "id, name, description, spec, category, price, image, tag, sort_order"
+
+
+def _secondary_categories(package_ids=None):
+    """{package_id: [次要分類, ...]}"""
+    rows = db.query("SELECT package_id, category FROM package_categories ORDER BY id")
+    out = {}
+    for r in rows:
+        if package_ids is None or r["package_id"] in package_ids:
+            out.setdefault(r["package_id"], []).append(r["category"])
+    return out
+
+
+@shop_bp.get("/categories")
+def list_categories():
+    """前台側邊選單用:只回傳目前有上架商品的分類,依標準清單順序排列。"""
+    used = set()
+    for r in db.query("SELECT DISTINCT category FROM package WHERE is_active = 1"):
+        used.add(r["category"])
+    for r in db.query(
+            "SELECT DISTINCT c.category FROM package_categories c"
+            " JOIN package k ON k.id = c.package_id AND k.is_active = 1"):
+        used.add(r["category"])
+    ordered = [c for c in config.PACKAGE_CATEGORIES if c in used]
+    ordered += sorted(c for c in used if c not in config.PACKAGE_CATEGORIES)
+    return jsonify({"categories": ordered})
 
 
 @shop_bp.get("/packages")
 def list_packages():
     category = request.args.get("category")
-    sql = f"SELECT {PACKAGE_FIELDS} FROM package WHERE is_active = 1"
-    args = []
-    if category and category != "全部商品":
-        sql += " AND category = %s"
-        args.append(category)
-    sql += " ORDER BY id"
-    packages = db.query(sql, args)
+    packages = db.query(
+        f"SELECT {PACKAGE_FIELDS} FROM package WHERE is_active = 1 ORDER BY sort_order, id")
 
-    # 附上禮盒內容物 (顧客可看到盒內品項)
+    secondary = _secondary_categories()
     contents = db.query(
-        "SELECT m.package_id, p.name, m.quantity FROM package_products_map m"
+        "SELECT m.package_id, p.name, p.unit, m.quantity FROM package_products_map m"
         " JOIN products p ON p.id = m.product_id ORDER BY m.id")
     by_pkg = {}
     for c in contents:
         by_pkg.setdefault(c["package_id"], []).append(
-            {"name": c["name"], "quantity": float(c["quantity"])})
+            {"name": c["name"], "unit": c["unit"], "quantity": float(c["quantity"])})
+
     for p in packages:
         p["items"] = by_pkg.get(p["id"], [])
+        p["secondary_categories"] = secondary.get(p["id"], [])
+        # categories = 主要 + 次要,前台用來判斷是否屬於某個系列
+        p["categories"] = [p["category"]] + p["secondary_categories"]
+
+    if category and category != "全部商品":
+        packages = [p for p in packages if category in p["categories"]]
     return jsonify({"packages": packages})
 
 
@@ -54,6 +81,8 @@ def _fetch_package(pkg_id):
             "SELECT p.name, p.unit, m.quantity FROM package_products_map m"
             " JOIN products p ON p.id = m.product_id WHERE m.package_id = %s ORDER BY m.id", (pkg_id,))
     ]
+    row["secondary_categories"] = _secondary_categories({pkg_id}).get(pkg_id, [])
+    row["categories"] = [row["category"]] + row["secondary_categories"]
     return row
 
 

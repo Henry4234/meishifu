@@ -40,8 +40,19 @@ SCHEMA = [
         tag VARCHAR(50) DEFAULT '',
         packaging_material_id INT DEFAULT NULL,
         packaging_qty DECIMAL(12,3) NOT NULL DEFAULT 1,
+        sort_order INT NOT NULL DEFAULT 0,
         is_active TINYINT(1) DEFAULT 1,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    """,
+    # 禮盒的「次要分類」:主要分類存在 package.category,一個禮盒可再歸屬多個系列
+    """
+    CREATE TABLE IF NOT EXISTS package_categories (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        package_id INT NOT NULL,
+        category VARCHAR(50) NOT NULL,
+        UNIQUE KEY uq_pc (package_id, category),
+        FOREIGN KEY (package_id) REFERENCES package(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     """,
     # 禮盒內容:一個禮盒包含哪些單一產品、各幾入
@@ -444,6 +455,50 @@ def migrate_recipes(cur):
     mark_migration(cur, name)
 
 
+# 單品名稱關鍵字 → 所屬系列 (用於推導禮盒的次要分類起始值)
+PRODUCT_SERIES = [
+    ("蛋黃酥", "蛋黃酥系列"),
+    ("鳳凰酥", "鳳凰酥系列"),
+    ("堅果塔", "堅果塔系列"),
+]
+
+
+def migrate_multi_category(cur):
+    """禮盒改為可同時歸屬多個系列:主要分類仍存在 package.category,
+    次要分類存於 package_categories;另加 sort_order 供前台排序。"""
+    name = "2026_08_package_multi_category"
+    if migration_done(cur, name):
+        return
+
+    if "sort_order" not in columns_of(cur, "package"):
+        cur.execute("ALTER TABLE package ADD COLUMN sort_order INT NOT NULL DEFAULT 0 AFTER packaging_qty")
+        print("  package 新增欄位: sort_order")
+
+    # 舊分類名稱對齊標準清單
+    cur.execute("UPDATE package SET category = '鳳凰酥系列' WHERE category = '鳳梨酥系列'")
+
+    # 依禮盒內容物推導次要分類作為起始值 (之後可在後台自行調整)
+    cur.execute("SELECT COUNT(*) AS c FROM package_categories")
+    if cur.fetchone()["c"] == 0:
+        cur.execute(
+            "SELECT m.package_id, k.category AS primary_cat, p.name"
+            " FROM package_products_map m"
+            " JOIN products p ON p.id = m.product_id"
+            " JOIN package k ON k.id = m.package_id")
+        derived = {}
+        for r in cur.fetchall():
+            for keyword, series in PRODUCT_SERIES:
+                if keyword in r["name"] and series != r["primary_cat"]:
+                    derived.setdefault(r["package_id"], set()).add(series)
+        rows = [(pid, cat) for pid, cats in derived.items() for cat in sorted(cats)]
+        if rows:
+            cur.executemany(
+                "INSERT IGNORE INTO package_categories (package_id, category) VALUES (%s,%s)", rows)
+            print(f"  依內容物推導出 {len(rows)} 筆次要分類 (可於後台調整)")
+
+    mark_migration(cur, name)
+
+
 # ---------------------------------------------------------------- 種子
 def seed(cur):
     cur.execute("SELECT COUNT(*) AS c FROM materials")
@@ -526,6 +581,7 @@ def main():
             migrate_products_to_package(cur)
             migrate_bom_precision(cur)
             migrate_recipes(cur)
+            migrate_multi_category(cur)
             print("寫入種子資料...")
             seed(cur)
         conn.commit()

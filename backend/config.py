@@ -32,3 +32,11 @@ PAYMENT_GATEWAY = {
 
 FREE_SHIPPING_THRESHOLD = 2000
 SHIPPING_FEE = 120
+
+# 商品分類 (前後台共用的標準清單,順序即前台側邊選單的顯示順序)
+PACKAGE_CATEGORIES = [
+    "蛋黃酥系列",
+    "鳳凰酥系列",
+    "堅果塔系列",
+    "綜合系列",
+]

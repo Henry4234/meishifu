@@ -13,6 +13,7 @@ from flask import Blueprint, jsonify, request
 from werkzeug.security import generate_password_hash
 from werkzeug.utils import secure_filename
 
+import config
 import db
 from routes.admin import ROLE_LABELS, login_required, role_required
 
@@ -183,8 +184,32 @@ def purchase_material(mid):
 @manage_bp.delete("/materials/<int:mid>")
 @login_required
 def delete_material(mid):
+    """停用材料 (soft delete)。仍被配方或禮盒包材使用時拒絕,
+    避免已刪除的材料繼續默默計入成本。"""
+    m = db.query_one("SELECT id, name FROM materials WHERE id = %s AND is_active = 1", (mid,))
+    if not m:
+        return jsonify({"error": "查無材料"}), 404
+
+    used_by = [r["name"] for r in db.query(
+        "SELECT p.name FROM product_materials pm JOIN products p ON p.id = pm.product_id"
+        " WHERE pm.material_id = %s ORDER BY p.id", (mid,))]
+    used_as_packaging = [r["name"] for r in db.query(
+        "SELECT name FROM package WHERE packaging_material_id = %s ORDER BY id", (mid,))]
+
+    if used_by or used_as_packaging:
+        parts = []
+        if used_by:
+            parts.append("配方:" + "、".join(used_by))
+        if used_as_packaging:
+            parts.append("禮盒包材:" + "、".join(used_as_packaging))
+        return jsonify({
+            "error": f"「{m['name']}」仍被使用中,請先移除後再刪除 ({';'.join(parts)})",
+            "used_by_products": used_by,
+            "used_as_packaging": used_as_packaging,
+        }), 400
+
     db.execute("UPDATE materials SET is_active = 0 WHERE id = %s", (mid,))
-    return jsonify({"id": mid, "deleted": True})
+    return jsonify({"id": mid, "name": m["name"], "deleted": True})
 
 
 # ---------------------------------------------------------------- 單一產品與配方
@@ -290,13 +315,26 @@ def _save_upload(file):
     return f"/assets/uploads/{filename}"
 
 
+def _all_categories():
+    """標準分類清單 ∪ 資料庫既有值 (避免舊資料的分類在後台選單消失)。"""
+    used = set()
+    for r in db.query("SELECT DISTINCT category FROM package"):
+        if r["category"]:
+            used.add(r["category"])
+    for r in db.query("SELECT DISTINCT category FROM package_categories"):
+        used.add(r["category"])
+    extra = sorted(c for c in used if c not in config.PACKAGE_CATEGORIES)
+    return list(config.PACKAGE_CATEGORIES) + extra
+
+
 @manage_bp.get("/packages")
 @login_required
 def list_packages():
     costs = package_costs()
     rows = db.query(
         "SELECT id, name, description, spec, category, price, image, tag,"
-        " packaging_material_id, packaging_qty, is_active, created_at FROM package ORDER BY id DESC")
+        " packaging_material_id, packaging_qty, sort_order, is_active, created_at"
+        " FROM package ORDER BY sort_order, id")
     contents = db.query(
         "SELECT m.package_id, m.product_id, m.quantity, p.name, p.unit"
         " FROM package_products_map m JOIN products p ON p.id = m.product_id ORDER BY m.id")
@@ -306,14 +344,42 @@ def list_packages():
             "product_id": c["product_id"], "name": c["name"],
             "unit": c["unit"], "quantity": float(c["quantity"]),
         })
+    secondary = {}
+    for r in db.query("SELECT package_id, category FROM package_categories ORDER BY id"):
+        secondary.setdefault(r["package_id"], []).append(r["category"])
+
     for r in rows:
         r["created_at"] = r["created_at"].strftime("%Y-%m-%d")
         r["packaging_qty"] = float(r["packaging_qty"])
         r["items"] = by_pkg.get(r["id"], [])
+        r["secondary_categories"] = secondary.get(r["id"], [])
         r["cost"] = round(costs.get(r["id"], 0), 1)
         r["profit"] = round(r["price"] - r["cost"], 1)
         r["margin"] = round((r["price"] - r["cost"]) / r["price"] * 100, 1) if r["price"] else 0
-    return jsonify({"packages": rows})
+    return jsonify({"packages": rows, "all_categories": _all_categories()})
+
+
+def _replace_package_categories(pkg_id, raw, primary):
+    """整批覆寫次要分類。raw 為 JSON 字串或 list;與主要分類重複者會被略過。"""
+    if raw is None:
+        return
+    if isinstance(raw, str):
+        import json
+        try:
+            raw = json.loads(raw)
+        except ValueError:
+            return
+    cats = []
+    for c in raw or []:
+        c = str(c).strip()
+        if c and c != primary and c not in cats:
+            cats.append(c)
+    db.execute("DELETE FROM package_categories WHERE package_id = %s", (pkg_id,))
+    if cats:
+        with db.db_cursor(commit=True) as cur:
+            cur.executemany(
+                "INSERT INTO package_categories (package_id, category) VALUES (%s,%s)",
+                [(pkg_id, c) for c in cats])
 
 
 def _replace_package_items(pkg_id, raw):
@@ -361,15 +427,19 @@ def create_package():
         except ValueError as e:
             return jsonify({"error": str(e)}), 400
 
+    primary = form.get("category") or "其他"
     pkg_id = db.execute(
         "INSERT INTO package (name, description, spec, category, price, image, tag,"
-        " packaging_material_id, packaging_qty, is_active) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+        " packaging_material_id, packaging_qty, sort_order, is_active)"
+        " VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
         (name, form.get("description") or "", form.get("spec") or "",
-         form.get("category") or "其他", price, image_path, form.get("tag") or "",
+         primary, price, image_path, form.get("tag") or "",
          form.get("packaging_material_id") or None, form.get("packaging_qty") or 1,
+         form.get("sort_order") or 0,
          1 if form.get("is_active", "1") in ("1", "true", "on") else 0),
     )
     _replace_package_items(pkg_id, form.get("items"))
+    _replace_package_categories(pkg_id, form.get("secondary_categories"), primary)
     return jsonify({"id": pkg_id, "image": image_path}), 201
 
 
@@ -377,7 +447,8 @@ def create_package():
 @login_required
 def update_package(pkg_id):
     """更新禮盒 (multipart;image 為選填,有附檔才更換圖片)。"""
-    if not db.query_one("SELECT id FROM package WHERE id = %s", (pkg_id,)):
+    existing = db.query_one("SELECT id, category FROM package WHERE id = %s", (pkg_id,))
+    if not existing:
         return jsonify({"error": "查無禮盒"}), 404
     form = request.form
     fields, args = [], []
@@ -385,6 +456,12 @@ def update_package(pkg_id):
         if col in form:
             fields.append(f"{col} = %s")
             args.append(form.get(col))
+    if "sort_order" in form:
+        try:
+            fields.append("sort_order = %s")
+            args.append(int(form.get("sort_order") or 0))
+        except ValueError:
+            return jsonify({"error": "排序權重必須為整數"}), 400
     if "price" in form:
         try:
             fields.append("price = %s")
@@ -409,6 +486,8 @@ def update_package(pkg_id):
     if fields:
         db.execute(f"UPDATE package SET {', '.join(fields)} WHERE id = %s", args + [pkg_id])
     _replace_package_items(pkg_id, form.get("items"))
+    _replace_package_categories(
+        pkg_id, form.get("secondary_categories"), form.get("category") or existing["category"])
     return jsonify({"id": pkg_id, "updated": True})
 
 
