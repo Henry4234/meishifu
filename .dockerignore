@@ -1,0 +1,22 @@
+# 版本控制與 IDE
+.git
+.gitignore
+.vscode
+.idea
+
+# 環境檔 (改由 docker-compose 的 env_file 注入,不進 image)
+.env
+
+# Python 虛擬環境與快取
+backend/.venv
+.venv
+**/__pycache__
+**/*.py[cod]
+
+# 模板壓縮檔與文件
+*.zip
+README.md
+
+# Docker 自身檔案
+docker-compose*.yml
+.dockerignore

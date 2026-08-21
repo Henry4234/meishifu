@@ -66,6 +66,41 @@ python -m http.server 5500
 
 > 注意:本機 port 5000 常被 Docker/AirPlay 等服務佔用,故後端使用 5001。
 
+## 啟動方式 (Docker)
+
+三個服務各自一個容器,MySQL 仍使用 `.env` 指定的外部資料庫(不在 compose 內啟動):
+
+| 服務 | 內容 | 預設對外埠 |
+|---|---|---|
+| `backend` | Flask API,以 gunicorn 執行 (`backend/Dockerfile`) | 5001 |
+| `frontend` | 前台靜態站,nginx (`frontend/Dockerfile` + `frontend/nginx.conf`) | 5500 |
+| `admin` | 後台靜態站,nginx (`admin/Dockerfile` + `admin/nginx.conf`) | 5501 |
+
+```bash
+cp .env.sample .env          # 首次使用,填入 DB 連線資訊
+docker compose build
+docker compose up -d
+
+# 初始化資料庫 (建表 + 種子資料,可重複執行)
+docker compose --profile init run --rm db-init
+
+docker compose logs -f backend
+docker compose down
+```
+
+- 前台:http://localhost:5500/frontend/index.html (`/` 會自動導向)
+- 後台:http://localhost:5501/admin/login.html
+- API:http://localhost:5001/api/health
+
+補充說明:
+
+- 埠號可用環境變數覆寫:`FRONTEND_PORT` / `ADMIN_PORT` / `BACKEND_PORT`。
+- `./assets` 以 volume 掛進三個容器,後台上傳的商品圖前台立即可見。
+- 兩個 nginx 都已把 `/api/` 反向代理到 backend;若把 `frontend/js/site.js` 與
+  `admin/js/admin.js` 的 `API_BASE` 改成 `"/api"` 即為同源呼叫,可關閉 CORS 並收掉 5001 對外埠。
+- 資料庫若在 Docker 宿主機上,`.env` 的 `DB_HOST` 請填 `host.docker.internal`。
+- 正式環境務必以環境變數覆寫 `SECRET_KEY`。
+
 ## 權限角色
 
 | 角色 | 說明 |

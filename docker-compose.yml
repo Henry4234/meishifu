@@ -1,0 +1,95 @@
+name: meishifu
+
+# 三個服務:backend (Flask API) / frontend (前台靜態站) / admin (後台靜態站)
+# MySQL 使用 .env 指定的外部資料庫,不在此 compose 內啟動。
+#
+# 常用指令:
+#   cp .env.sample .env            # 首次使用,填入 DB 連線資訊
+#   docker compose build           # 建置三個 image
+#   docker compose up -d           # 啟動
+#   docker compose --profile init run --rm db-init   # 初始化資料庫 (建表 + 種子資料)
+#   docker compose logs -f backend
+#   docker compose down
+
+x-assets-volume: &assets-volume
+  # 後台上傳的商品圖需即時被前後台看見,故三個容器共用同一份 assets
+  - ./assets:/srv/assets
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    image: meishifu-backend:latest
+    container_name: meishifu-backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      # .env 未設定時的預設值 (正式環境務必覆寫 SECRET_KEY)
+      DB_NAME: ${DB_NAME:-meishifu}
+      SECRET_KEY: ${SECRET_KEY:-meishifu-dev-secret-change-me}
+      GUNICORN_WORKERS: ${GUNICORN_WORKERS:-4}
+      PAY_NOTIFY_URL: ${PAY_NOTIFY_URL:-http://localhost:5001/api/payment/notify}
+      PAY_RETURN_URL: ${PAY_RETURN_URL:-http://localhost:5500/frontend/cart.html}
+    ports:
+      # 前端 JS 的 API_BASE 目前寫死 http://localhost:5001/api,故對外開放此埠
+      - "${BACKEND_PORT:-5001}:5001"
+    volumes:
+      - ./assets:/app/assets
+    networks:
+      - meishifu
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    image: meishifu-frontend:latest
+    container_name: meishifu-frontend
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_PORT:-5500}:80"
+    volumes: *assets-volume
+    depends_on:
+      - backend
+    networks:
+      - meishifu
+
+  admin:
+    build:
+      context: .
+      dockerfile: admin/Dockerfile
+    image: meishifu-admin:latest
+    container_name: meishifu-admin
+    restart: unless-stopped
+    ports:
+      - "${ADMIN_PORT:-5501}:80"
+    volumes: *assets-volume
+    depends_on:
+      - backend
+    networks:
+      - meishifu
+
+  # 一次性工具容器:建表、種子資料、欄位遷移 (可重複執行)
+  # 預設不隨 up 啟動,需明確指定 profile
+  db-init:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    image: meishifu-backend:latest
+    profiles:
+      - init
+    restart: "no"
+    env_file:
+      - .env
+    environment:
+      DB_NAME: ${DB_NAME:-meishifu}
+    command: ["python", "init_db.py"]
+    volumes:
+      - ./assets:/app/assets
+    networks:
+      - meishifu
+
+networks:
+  meishifu:
+    driver: bridge
