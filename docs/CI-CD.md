@@ -123,6 +123,10 @@ bash deploy/gcp/bootstrap-github-actions.sh
 3. backend revision 繼續引用既有 Secret Manager 與 private uploads bucket。
 4. workflow 對三個 Cloud Run health endpoints 與 `meishifu.org/api/health` 執行 smoke test。
 
+Workflow 明確傳入 project number `729707774647`，日常 deployer 不需要呼叫
+`gcloud projects describe`，因此不依賴 Cloud Resource Manager API，也不需要增加
+project-wide 專案讀取角色。
+
 CI deployer 只取得單一 Artifact Registry repository 的 Writer、三個既有 Cloud Run
 services 的 Developer，以及指定 service identities 的 `actAs`；不授予 project-wide
 Cloud Build Editor 或 Cloud Run Admin。

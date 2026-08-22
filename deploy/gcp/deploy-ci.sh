@@ -5,13 +5,18 @@ set -euo pipefail
 # 單一 Artifact Registry repository，再更新既有 Cloud Run services。
 # 基礎設施與 Secret Manager 由 deploy.sh 首次建立，此腳本不讀取或輪替秘密。
 PROJECT_ID="${PROJECT_ID:-meishifu}"
+PROJECT_NUMBER="${PROJECT_NUMBER:-729707774647}"
 REGION="${REGION:-asia-east1}"
 TAG="${TAG:-$(git rev-parse HEAD)}"
 REPOSITORY="${REPOSITORY:-meishifu}"
 GCLOUD_BIN="${GCLOUD_BIN:-gcloud}"
 
+if [[ ! "${PROJECT_NUMBER}" =~ ^[0-9]+$ ]]; then
+  echo "PROJECT_NUMBER must contain digits only." >&2
+  exit 1
+fi
+
 RUNTIME_SERVICE_ACCOUNT="meishifu-runtime@${PROJECT_ID}.iam.gserviceaccount.com"
-PROJECT_NUMBER="$("${GCLOUD_BIN}" projects describe "${PROJECT_ID}" --format='value(projectNumber)')"
 STATIC_SERVICE_ACCOUNT="${PROJECT_NUMBER}-compute@developer.gserviceaccount.com"
 UPLOAD_BUCKET="${UPLOAD_BUCKET:-${PROJECT_ID}-uploads-${PROJECT_NUMBER}}"
 IMAGE_BASE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}"
