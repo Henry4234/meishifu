@@ -1,0 +1,300 @@
+from contextlib import contextmanager
+from datetime import date, datetime, timedelta
+
+import db
+from routes import manage
+
+
+def test_cost_and_demand_helpers(monkeypatch):
+    def fake_query(sql, _args=None):
+        if "GROUP BY pm.product_id" in sql:
+            return [{"product_id": 1, "cost": 12.5}]
+        if "SELECT package_id, product_id" in sql:
+            return [{"package_id": 10, "product_id": 1, "quantity": 2}]
+        if "packaging_qty" in sql and "JOIN materials" in sql:
+            return [{"id": 10, "packaging_qty": 1, "unit_cost": 5}]
+        if "SUM(oi.quantity * ppm.quantity" in sql:
+            return [{"material_id": 4, "d": 3}]
+        if "packaging_material_id AS mid" in sql:
+            return [{"mid": 4, "d": 2}, {"mid": 5, "d": 1}]
+        raise AssertionError(sql)
+
+    monkeypatch.setattr(db, "query", fake_query)
+    assert manage.product_costs() == {1: 12.5}
+    assert manage.package_costs() == {10: 30.0}
+    assert manage._material_demand() == {4: 5.0, 5: 1.0}
+    assert manage._material_status(1, 10, 0) == "shortage"
+    assert manage._material_status(7, 10, 0) == "low"
+    assert manage._material_status(12, 10, 0) == "ok"
+
+
+def test_material_endpoints(client, monkeypatch, auth_headers):
+    headers = auth_headers()
+
+    def list_query(sql, _args=None):
+        if "SUM(oi.quantity * ppm.quantity" in sql:
+            return [{"material_id": 1, "d": 8}]
+        if "packaging_material_id AS mid" in sql:
+            return []
+        if "FROM materials WHERE is_active" in sql:
+            return [{
+                "id": 1,
+                "name": "奶油",
+                "category": "乳品",
+                "batch_no": "B1",
+                "unit": "kg",
+                "stock": 5,
+                "safety_stock": 10,
+                "unit_cost": 300,
+                "expiry_date": date.today() + timedelta(days=10),
+                "created_at": date(2026, 1, 1),
+            }]
+        raise AssertionError(sql)
+
+    monkeypatch.setattr(db, "query", list_query)
+    listed = client.get("/api/admin/materials", headers=headers).get_json()
+    assert listed["materials"][0]["status"] == "shortage"
+    assert listed["stats"] == {"total": 1, "shortage": 1, "expiring": 1}
+
+    assert client.post("/api/admin/materials", json={}, headers=headers).status_code == 400
+    monkeypatch.setattr(db, "execute", lambda *_args, **_kwargs: 11)
+    assert client.post("/api/admin/materials", json={"name": "麵粉"}, headers=headers).status_code == 201
+
+    assert client.patch("/api/admin/materials/1", json={}, headers=headers).status_code == 400
+    monkeypatch.setattr(db, "query_one", lambda *_args, **_kwargs: None)
+    assert client.patch("/api/admin/materials/1", json={"name": "X"}, headers=headers).status_code == 404
+    monkeypatch.setattr(db, "query_one", lambda *_args, **_kwargs: {"id": 1})
+    executed = []
+    monkeypatch.setattr(db, "execute", lambda *args, **_kwargs: executed.append(args) or 1)
+    assert client.patch("/api/admin/materials/1", json={"stock": 20}, headers=headers).status_code == 200
+    assert len(executed) == 2
+
+    assert client.post("/api/admin/materials/1/purchase", json={}, headers=headers).status_code == 400
+    assert client.post("/api/admin/materials/1/purchase", json={"quantity": 0}, headers=headers).status_code == 400
+    monkeypatch.setattr(db, "query_one", lambda *_args, **_kwargs: None)
+    assert client.post("/api/admin/materials/1/purchase", json={"quantity": 2}, headers=headers).status_code == 404
+
+    query_results = iter([{"id": 1, "unit_cost": 100}, {"stock": 7, "unit_cost": 120}])
+    monkeypatch.setattr(db, "query_one", lambda *_args, **_kwargs: next(query_results))
+    bought = client.post(
+        "/api/admin/materials/1/purchase",
+        json={"quantity": 2, "unit_cost": 120, "note": "補貨"},
+        headers=headers,
+    )
+    assert bought.get_json() == {"id": 1, "stock": 7.0, "unit_cost": 120.0}
+
+    monkeypatch.setattr(db, "query_one", lambda *_args, **_kwargs: None)
+    assert client.delete("/api/admin/materials/1", headers=headers).status_code == 404
+    monkeypatch.setattr(db, "query_one", lambda *_args, **_kwargs: {"id": 1, "name": "奶油"})
+    monkeypatch.setattr(db, "query", lambda sql, _args=None: [{"name": "蛋黃酥"}] if "product_materials" in sql else [])
+    used = client.delete("/api/admin/materials/1", headers=headers)
+    assert used.status_code == 400
+    assert used.get_json()["used_by_products"] == ["蛋黃酥"]
+
+    monkeypatch.setattr(db, "query", lambda *_args, **_kwargs: [])
+    assert client.delete("/api/admin/materials/1", headers=headers).get_json()["deleted"] is True
+
+
+class ManyCursor:
+    def __init__(self):
+        self.calls = []
+
+    def executemany(self, sql, rows):
+        self.calls.append((sql, list(rows)))
+
+
+def test_replace_helpers(monkeypatch):
+    executed = []
+    cursor = ManyCursor()
+    monkeypatch.setattr(db, "execute", lambda *args, **_kwargs: executed.append(args))
+
+    @contextmanager
+    def fake_db_cursor(commit=False):
+        assert commit is True
+        yield cursor
+
+    monkeypatch.setattr(db, "db_cursor", fake_db_cursor)
+
+    manage._replace_bom(1, [{"material_id": "2", "quantity": "1.5"}, {"bad": 1}])
+    manage._replace_package_items(3, '[{"product_id": 4, "quantity": 2}]')
+    manage._replace_package_categories(3, '["綜合系列", "主分類", "綜合系列"]', "主分類")
+    assert len(executed) == 3
+    assert len(cursor.calls) == 3
+
+    before = (len(executed), len(cursor.calls))
+    manage._replace_bom(1, None)
+    manage._replace_package_items(1, "not-json")
+    manage._replace_package_categories(1, "not-json", "主")
+    assert (len(executed), len(cursor.calls)) == before
+
+
+def test_product_endpoints(client, monkeypatch, auth_headers):
+    headers = auth_headers()
+
+    def list_query(sql, _args=None):
+        if "GROUP BY pm.product_id" in sql:
+            return [{"product_id": 1, "cost": 30}]
+        if "FROM products ORDER" in sql:
+            return [{"id": 1, "name": "蛋黃酥", "description": "", "category": "糕餅", "unit": "顆", "is_active": 1}]
+        if "FROM product_materials" in sql:
+            return [{"product_id": 1, "material_id": 2, "quantity": 0.1, "name": "奶油", "unit": "kg", "unit_cost": 300}]
+        raise AssertionError(sql)
+
+    monkeypatch.setattr(db, "query", list_query)
+    product = client.get("/api/admin/products", headers=headers).get_json()["products"][0]
+    assert product["cost"] == 30
+    assert product["materials"][0]["cost"] == 30
+
+    assert client.post("/api/admin/products", json={}, headers=headers).status_code == 400
+    replaced = []
+    monkeypatch.setattr(db, "execute", lambda *_args, **_kwargs: 8)
+    monkeypatch.setattr(manage, "_replace_bom", lambda *args: replaced.append(args))
+    created = client.post("/api/admin/products", json={"name": "鳳凰酥", "materials": []}, headers=headers)
+    assert created.get_json()["id"] == 8
+    assert replaced
+
+    monkeypatch.setattr(db, "query_one", lambda *_args, **_kwargs: None)
+    assert client.patch("/api/admin/products/1", json={"name": "X"}, headers=headers).status_code == 404
+    monkeypatch.setattr(db, "query_one", lambda *_args, **_kwargs: {"id": 1})
+    assert client.patch(
+        "/api/admin/products/1",
+        json={"name": "新名稱", "is_active": False, "materials": []},
+        headers=headers,
+    ).status_code == 200
+
+    monkeypatch.setattr(db, "query_one", lambda *_args, **_kwargs: {"c": 2})
+    assert client.delete("/api/admin/products/1", headers=headers).status_code == 400
+    monkeypatch.setattr(db, "query_one", lambda *_args, **_kwargs: {"c": 0})
+    assert client.delete("/api/admin/products/1", headers=headers).get_json()["deleted"] is True
+
+
+def test_package_endpoints(client, monkeypatch, auth_headers):
+    headers = auth_headers()
+    monkeypatch.setattr(manage, "package_costs", lambda: {1: 400})
+
+    def package_query(sql, _args=None):
+        if "FROM package ORDER" in sql:
+            return [{
+                "id": 1,
+                "name": "禮盒",
+                "description": "",
+                "spec": "6入",
+                "category": "蛋黃酥系列",
+                "price": 600,
+                "image": "",
+                "tag": "",
+                "packaging_material_id": None,
+                "packaging_qty": 1,
+                "sort_order": 0,
+                "is_active": 1,
+                "created_at": date(2026, 1, 1),
+            }]
+        if "package_products_map" in sql:
+            return [{"package_id": 1, "product_id": 2, "quantity": 6, "name": "蛋黃酥", "unit": "顆"}]
+        if "SELECT package_id, category" in sql:
+            return [{"package_id": 1, "category": "綜合系列"}]
+        if "SELECT DISTINCT category FROM package_categories" in sql:
+            return [{"category": "季節限定"}]
+        if "SELECT DISTINCT category FROM package" in sql:
+            return [{"category": "蛋黃酥系列"}]
+        raise AssertionError(sql)
+
+    monkeypatch.setattr(db, "query", package_query)
+    result = client.get("/api/admin/packages", headers=headers).get_json()
+    assert result["packages"][0]["profit"] == 200
+    assert "季節限定" in result["all_categories"]
+
+    assert client.post("/api/admin/packages", data={"name": "X", "price": "bad"}, headers=headers).status_code == 400
+    monkeypatch.setattr(db, "execute", lambda *_args, **_kwargs: 9)
+    monkeypatch.setattr(manage, "_replace_package_items", lambda *_args: None)
+    monkeypatch.setattr(manage, "_replace_package_categories", lambda *_args: None)
+    created = client.post(
+        "/api/admin/packages",
+        data={"name": "新禮盒", "price": "700", "category": "綜合系列"},
+        headers=headers,
+    )
+    assert created.status_code == 201
+
+    monkeypatch.setattr(db, "query_one", lambda *_args, **_kwargs: None)
+    assert client.post("/api/admin/packages/1/update", data={}, headers=headers).status_code == 404
+    monkeypatch.setattr(db, "query_one", lambda *_args, **_kwargs: {"id": 1, "category": "蛋黃酥系列"})
+    assert client.post("/api/admin/packages/1/update", data={"sort_order": "bad"}, headers=headers).status_code == 400
+    updated = client.post(
+        "/api/admin/packages/1/update",
+        data={"name": "改名", "price": "800", "sort_order": "2", "is_active": "true"},
+        headers=headers,
+    )
+    assert updated.get_json()["updated"] is True
+
+    monkeypatch.setattr(db, "query_one", lambda *_args, **_kwargs: None)
+    assert client.patch("/api/admin/packages/1/active", json={"is_active": True}, headers=headers).status_code == 404
+    monkeypatch.setattr(db, "query_one", lambda *_args, **_kwargs: {"id": 1})
+    assert client.patch("/api/admin/packages/1/active", json={"is_active": False}, headers=headers).get_json()["is_active"] == 0
+
+
+def test_user_and_finance_endpoints(client, monkeypatch, auth_headers):
+    super_headers = auth_headers("super", sub="1")
+    user_rows = [{
+        "id": 1,
+        "username": "admin",
+        "display_name": "Admin",
+        "email": "admin@example.com",
+        "role": "super",
+        "is_active": 1,
+        "last_login": datetime(2026, 8, 22, 9, 0),
+        "created_at": date(2026, 1, 1),
+    }]
+    monkeypatch.setattr(db, "query", lambda *_args, **_kwargs: [r.copy() for r in user_rows])
+    listed = client.get("/api/admin/users", headers=super_headers).get_json()
+    assert listed["stats"]["active"] == 1
+
+    assert client.post("/api/admin/users", json={}, headers=super_headers).status_code == 400
+    assert client.post(
+        "/api/admin/users",
+        json={"username": "x", "password": "password123", "role": "bad"},
+        headers=super_headers,
+    ).status_code == 400
+    monkeypatch.setattr(db, "query_one", lambda *_args, **_kwargs: {"id": 1})
+    assert client.post(
+        "/api/admin/users",
+        json={"username": "admin", "password": "password123", "role": "super"},
+        headers=super_headers,
+    ).status_code == 400
+    monkeypatch.setattr(db, "query_one", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(db, "execute", lambda *_args, **_kwargs: 3)
+    created = client.post(
+        "/api/admin/users",
+        json={"username": "staff", "password": "password123", "role": "staff"},
+        headers=super_headers,
+    )
+    assert created.status_code == 201
+
+    assert client.patch("/api/admin/users/9", json={"email": "x"}, headers=super_headers).status_code == 404
+    monkeypatch.setattr(db, "query_one", lambda *_args, **_kwargs: {"id": 1, "username": "admin"})
+    assert client.patch("/api/admin/users/1", json={"is_active": False}, headers=super_headers).status_code == 400
+    assert client.patch("/api/admin/users/1", json={"role": "bad"}, headers=super_headers).status_code == 400
+    assert client.patch("/api/admin/users/1", json={}, headers=super_headers).status_code == 400
+    changed = client.patch(
+        "/api/admin/users/1",
+        json={"display_name": "新管理員", "email": "new@example.com", "password": "newpassword"},
+        headers=super_headers,
+    )
+    assert changed.status_code == 200
+
+    monkeypatch.setattr(manage, "package_costs", lambda: {1: 100})
+
+    def finance_query_one(sql, _args=None):
+        if "COUNT(*) AS cnt" in sql:
+            return {"cnt": 2, "rev": 1000}
+        if "SUM(total)" in sql:
+            return {"v": 2000}
+        if "COUNT(*) AS v" in sql:
+            return {"v": 4}
+        raise AssertionError(sql)
+
+    monkeypatch.setattr(db, "query_one", finance_query_one)
+    monkeypatch.setattr(db, "query", lambda *_args, **_kwargs: [{"package_id": 1, "qty": 2}])
+    finance = client.get("/api/admin/finance?period=quarter", headers=auth_headers("finance")).get_json()
+    assert finance["revenue"] == 2000
+    assert finance["cost"] == 200
+    assert len(finance["weeks"]) == 4

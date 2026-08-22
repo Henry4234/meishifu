@@ -129,6 +129,16 @@ DB_AC='<db-user>' DB_PW='<db-password>' GCLOUD_BIN=gcloud \
 WRANGLER_BIN=wrangler deploy/cloudflare/deploy.sh
 ```
 
+## CI/CD
+
+GitHub Actions 會在所有分支 push，以及針對 `main` 的 Pull Request，分別執行
+frontend、admin、backend 測試；任一 container coverage 低於 70% 都會失敗，並產生
+包含三者結果的合併報告。只有 `main` 測試成功後才會透過 OIDC／Workload Identity
+Federation 部署三個 Cloud Run services，不使用長效 GCP JSON key。
+
+完整設定、GitHub Variables、權限、回滾與 `deploy/` 版本控制原則請見
+[`docs/CI-CD.md`](docs/CI-CD.md)。
+
 ## 權限角色
 
 | 角色 | 說明 |

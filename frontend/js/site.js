@@ -100,3 +100,24 @@ function showToast(msg) {
 }
 
 document.addEventListener("DOMContentLoaded", updateCartBadge);
+
+// Node.js test runner 使用；瀏覽器端沒有 module，因此不影響正式網站。
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = {
+    API_BASE,
+    CART_KEY,
+    apiGet,
+    apiPost,
+    getPackage,
+    getCart,
+    saveCart,
+    addToCart,
+    setQuantity,
+    removeFromCart,
+    clearCart,
+    cartCount,
+    updateCartBadge,
+    formatPrice,
+    showToast,
+  };
+}

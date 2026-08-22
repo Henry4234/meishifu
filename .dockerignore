@@ -12,6 +12,16 @@ backend/.venv
 .venv
 **/__pycache__
 **/*.py[cod]
+backend/tests
+backend/.coverage
+backend/coverage.xml
+backend/coverage.json
+backend/htmlcov
+frontend/tests
+frontend/coverage
+admin/tests
+admin/coverage
+coverage-summary
 
 # 模板壓縮檔與文件
 *.zip

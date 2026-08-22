@@ -50,3 +50,20 @@ function statusBadge(status) {
   const s = STATUS_STYLE[status] || { label: status, cls: "bg-surface-variant text-on-surface-variant" };
   return `<span class="inline-flex items-center px-2 py-1 rounded-full ${s.cls} font-caption text-caption gap-1">${s.label}</span>`;
 }
+
+// Node.js test runner 使用；瀏覽器端沒有 module，因此不影響正式管理系統。
+if (typeof module !== "undefined" && module.exports) {
+  module.exports = {
+    API_BASE,
+    TOKEN_KEY,
+    ADMIN_NAME_KEY,
+    STATUS_STYLE,
+    getToken,
+    requireLogin,
+    logout,
+    adminFetch,
+    formatPrice,
+    fillAdminName,
+    statusBadge,
+  };
+}
