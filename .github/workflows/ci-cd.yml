@@ -242,7 +242,35 @@ jobs:
         with:
           project_id: meishifu
 
+      - name: Capture currently serving revisions
+        id: previous_revisions
+        env:
+          PROJECT_ID: meishifu
+          REGION: asia-east1
+        run: |
+          capture_revision() {
+            local output_name="$1"
+            local service="$2"
+            local revision
+            local percent
+
+            read -r revision percent <<< "$(gcloud run services describe "${service}" \
+              --project "${PROJECT_ID}" \
+              --region "${REGION}" \
+              --format='value(status.traffic[0].revisionName,status.traffic[0].percent)')"
+
+            test -n "${revision}" || { echo "No serving revision found for ${service}" >&2; exit 1; }
+            test "${percent}" = "100" || { echo "${service} does not have a single 100% traffic revision" >&2; exit 1; }
+            echo "${output_name}=${revision}" >> "${GITHUB_OUTPUT}"
+            echo "Captured ${service}: ${revision}"
+          }
+
+          capture_revision backend_revision meishifu-backend
+          capture_revision frontend_revision meishifu-frontend
+          capture_revision admin_revision meishifu-admin
+
       - name: Build, push, and deploy immutable revision
+        id: deploy_services
         env:
           PROJECT_ID: meishifu
           PROJECT_NUMBER: "729707774647"
@@ -251,15 +279,18 @@ jobs:
         run: bash deploy/gcp/deploy-ci.sh
 
       - name: Smoke test deployed services
+        id: smoke_tests
         env:
           PROJECT_ID: meishifu
           REGION: asia-east1
-        run: |
-          backend_url="$(gcloud run services describe meishifu-backend --project "${PROJECT_ID}" --region "${REGION}" --format='value(status.url)')"
-          frontend_url="$(gcloud run services describe meishifu-frontend --project "${PROJECT_ID}" --region "${REGION}" --format='value(status.url)')"
-          admin_url="$(gcloud run services describe meishifu-admin --project "${PROJECT_ID}" --region "${REGION}" --format='value(status.url)')"
+        run: bash deploy/gcp/smoke-test-ci.sh
 
-          curl --fail --silent --show-error --retry 5 --retry-all-errors "${backend_url}/api/health"
-          curl --fail --silent --show-error --retry 5 --retry-all-errors "${frontend_url}/healthz"
-          curl --fail --silent --show-error --retry 5 --retry-all-errors "${admin_url}/healthz"
-          curl --fail --silent --show-error --retry 5 --retry-all-errors "https://meishifu.org/api/health"
+      - name: Roll back Cloud Run traffic after failure
+        if: ${{ failure() && steps.previous_revisions.outcome == 'success' }}
+        env:
+          PROJECT_ID: meishifu
+          REGION: asia-east1
+          PREVIOUS_BACKEND_REVISION: ${{ steps.previous_revisions.outputs.backend_revision }}
+          PREVIOUS_FRONTEND_REVISION: ${{ steps.previous_revisions.outputs.frontend_revision }}
+          PREVIOUS_ADMIN_REVISION: ${{ steps.previous_revisions.outputs.admin_revision }}
+        run: bash deploy/gcp/rollback-ci.sh
