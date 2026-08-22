@@ -245,6 +245,7 @@ jobs:
       - name: Build, push, and deploy immutable revision
         env:
           PROJECT_ID: meishifu
+          PROJECT_NUMBER: "729707774647"
           REGION: asia-east1
           TAG: ${{ github.sha }}
         run: bash deploy/gcp/deploy-ci.sh
