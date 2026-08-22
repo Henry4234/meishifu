@@ -16,6 +16,8 @@ flowchart LR
     F --> G["GitHub runner 建置並推送三個 images"]
     G --> H["Cloud Run 部署三個 services"]
     H --> I["Cloud Run + meishifu.org smoke tests"]
+    H -- 部署失敗 --> R["三服務 rollback"]
+    I -- smoke test 失敗 --> R
 ```
 
 ## Workflow 行為
@@ -29,6 +31,8 @@ Workflow 位於 `.github/workflows/ci-cd.yml`。
 - `workflow_dispatch`：可從 GitHub Actions 手動重新執行；部署仍只允許 `main`。
 - `deploy` job 同時依賴三個 test jobs 與 `coverage-report`；任一測試失敗或 coverage
   低於 70% 時不會執行。
+- deployment 前先記錄三個服務目前接收 100% 流量的 revision；deploy 或 smoke test
+  任一步驟失敗時，自動將三個服務流量全部切回這些 revisions，workflow 仍維持失敗狀態。
 - production concurrency 不取消正在進行的部署，避免兩次發布互相中斷。
 - 每次以完整 Git commit SHA 當 image tag，可追蹤及回滾，不使用可變的 `latest`。
 
@@ -121,7 +125,12 @@ bash deploy/gcp/bootstrap-github-actions.sh
    推送到 `asia-east1-docker.pkg.dev/meishifu/meishifu`。
 2. 更新 `meishifu-backend`、`meishifu-frontend`、`meishifu-admin` 三個既有 services。
 3. backend revision 繼續引用既有 Secret Manager 與 private uploads bucket。
-4. workflow 對三個 Cloud Run health endpoints 與 `meishifu.org/api/health` 執行 smoke test。
+4. workflow 對三個 Cloud Run origins，以及 `meishifu.org` 的 API、官網與 management
+   路由執行 smoke test。
+
+Cloud Run 保留部分以 `z` 結尾的 URL path，官方建議避免所有這類 path。因此 frontend
+與 admin 使用 `/health`，而不是會在 Google Frontend 被攔截的 `/healthz`。詳見
+[Cloud Run reserved URL paths](https://docs.cloud.google.com/run/docs/known-issues#reserved-url-paths)。
 
 Workflow 明確傳入 project number `729707774647`，日常 deployer 不需要呼叫
 `gcloud projects describe`，因此不依賴 Cloud Resource Manager API，也不需要增加
@@ -170,6 +179,10 @@ frontend 與 admin 使用相同方式回滾。若 workflow 在 authentication �
 兩個 GitHub Variables、OIDC provider 的 repository/main condition，以及 GitHub job
 具有 `id-token: write`。若 image build、push 或 deployment 失敗，從 Actions log 中的
 Docker／Artifact Registry 輸出與三個 `gcloud run deploy` 步驟查詢。
+
+CI 自動 rollback 使用 `deploy/gcp/rollback-ci.sh`。它不刪除失敗 revision 或 image，
+只將三個 services 的流量切回部署前 revisions，保留完整稽核與除錯資料。Rollback
+本身若有任何服務失敗，也會讓該步驟失敗並在 Actions log 清楚列出服務名稱。
 
 ## `deploy/` 是否應加入 `.gitignore`
 
