@@ -1,5 +1,5 @@
 /* 後台共用腳本:JWT 驗證與 API 呼叫 */
-const API_BASE = "http://localhost:5001/api";
+const API_BASE = "/api";
 const TOKEN_KEY = "meishifu_admin_token";
 const ADMIN_NAME_KEY = "meishifu_admin_name";
 

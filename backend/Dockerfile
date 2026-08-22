@@ -16,8 +16,7 @@ WORKDIR /build
 # 只複製依賴定義,讓程式碼變動不會使依賴層快取失效
 COPY backend/pyproject.toml backend/uv.lock ./
 
-RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --frozen --no-dev --no-install-project \
+RUN uv sync --frozen --no-dev --no-install-project \
     && uv pip install --python /opt/venv gunicorn
 
 ########## 2. 執行環境 ##########
@@ -43,10 +42,10 @@ RUN rm -f /app/backend/Dockerfile \
 
 USER app
 
-EXPOSE 5001
+EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD python -c "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:5001/api/health', timeout=3).status == 200 else 1)"
+    CMD python -c "import os,urllib.request,sys; port=os.getenv('PORT','8080'); sys.exit(0 if urllib.request.urlopen(f'http://127.0.0.1:{port}/api/health', timeout=3).status == 200 else 1)"
 
 # app.py 提供 create_app() 工廠;worker 數可用 GUNICORN_WORKERS 覆寫
-CMD ["sh", "-c", "exec gunicorn --workers ${GUNICORN_WORKERS:-4} --threads ${GUNICORN_THREADS:-2} --timeout ${GUNICORN_TIMEOUT:-60} --bind 0.0.0.0:5001 --access-logfile - --error-logfile - 'app:create_app()'"]
+CMD ["sh", "-c", "exec gunicorn --workers ${GUNICORN_WORKERS:-2} --threads ${GUNICORN_THREADS:-4} --timeout ${GUNICORN_TIMEOUT:-60} --bind 0.0.0.0:${PORT:-8080} --access-logfile - --error-logfile - 'app:create_app()'"]

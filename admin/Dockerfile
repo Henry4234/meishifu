@@ -15,7 +15,7 @@ COPY assets/ /srv/assets/
 
 RUN rm -f /srv/admin/nginx.conf /srv/admin/Dockerfile
 
-EXPOSE 80
+EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-    CMD wget -qO- http://127.0.0.1/healthz || exit 1
+    CMD wget -qO- http://127.0.0.1:8080/healthz || exit 1

@@ -62,7 +62,8 @@ python -m http.server 5500
 
 - 前台:http://localhost:5500/frontend/index.html
 - 後台:http://localhost:5500/admin/login.html
-- 預設管理員帳號:`admin` / `meishifu2026`(角色:超級管理員;上線前請修改)
+- 本機預設管理員帳號:`admin` / `meishifu2026`(角色:超級管理員;上線前請修改)。
+  Cloud Run 部署會把隨機初始密碼存入 Secret Manager 的 `meishifu-admin-password`。
 
 > 注意:本機 port 5000 常被 Docker/AirPlay 等服務佔用,故後端使用 5001。
 
@@ -96,10 +97,37 @@ docker compose down
 
 - 埠號可用環境變數覆寫:`FRONTEND_PORT` / `ADMIN_PORT` / `BACKEND_PORT`。
 - `./assets` 以 volume 掛進三個容器,後台上傳的商品圖前台立即可見。
-- 兩個 nginx 都已把 `/api/` 反向代理到 backend;若把 `frontend/js/site.js` 與
-  `admin/js/admin.js` 的 `API_BASE` 改成 `"/api"` 即為同源呼叫,可關閉 CORS 並收掉 5001 對外埠。
+- 兩個 nginx 都已把 `/api/` 反向代理到 backend，前後台的 `API_BASE` 使用 `"/api"`
+  同源呼叫；Cloudflare edge router 會在正式環境把 `/api/*` 直接送到 backend Cloud Run。
 - 資料庫若在 Docker 宿主機上,`.env` 的 `DB_HOST` 請填 `host.docker.internal`。
 - 正式環境務必以環境變數覆寫 `SECRET_KEY`。
+- GCP 部署腳本預設不修改既有資料庫；只有在全新資料庫需要建表時，才以
+  `RUN_DB_INIT=true` 明確執行 Cloud Run 初始化工作。
+
+## 正式環境部署
+
+- GCP project:`meishifu`，region:`asia-east1`
+- Cloud Run services:`meishifu-frontend` / `meishifu-admin` / `meishifu-backend`
+- Cloudflare Worker:`meishifu-edge`
+- 公開路由:`https://meishifu.org/`、`https://meishifu.org/management/`、
+  `https://meishifu.org/api/*`
+- 商品上傳圖片儲存在私有 bucket:`meishifu-uploads-729707774647`
+- DB/JWT 憑證只存在 Secret Manager，不寫入 image 或 repository。
+
+部署定義位於 `deploy/cloudbuild.yaml`、`deploy/gcp/deploy.sh` 與
+`deploy/cloudflare/`。所有 GCP 操作都由 `gcloud` SDK 執行；GCP 腳本需要由環境
+提供 `DB_AC` / `DB_PW`，且預設保留既有 JWT key 與管理員密碼，不會因重部署而
+隨機輪替。Cloudflare origin 與 custom domain 以 `deploy/cloudflare/wrangler.jsonc`
+為設定來源，使用 Wrangler CLI 發布：
+
+```bash
+# 已完成 gcloud auth login 與 gcloud config set project meishifu 後
+DB_AC='<db-user>' DB_PW='<db-password>' GCLOUD_BIN=gcloud \
+  deploy/gcp/deploy.sh
+
+# 已完成 wrangler login 後
+WRANGLER_BIN=wrangler deploy/cloudflare/deploy.sh
+```
 
 ## 權限角色
 

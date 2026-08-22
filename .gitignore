@@ -1,3 +1,4 @@
+#templates files
 /stitch_meishifu_official_bakery_site.zip
 
 #環境檔案
@@ -5,3 +6,9 @@
 
 #tamplates
 *.zip
+
+# Cloudflare Wrangler local cache
+.wrangler/
+
+#deployed doc
+/deploy

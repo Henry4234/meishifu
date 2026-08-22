@@ -7,11 +7,24 @@ from dotenv import load_dotenv
 # .env 位於 website 專案根目錄 (backend 的上一層)
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
-DB_HOST = os.getenv("DB_HOST", "127.0.0.1")
+DB_HOST = os.getenv("DB_HOST", "114.35.125.200")
 DB_PORT = int(os.getenv("DB_port", os.getenv("DB_PORT", "3306")))
 DB_USER = os.getenv("DB_AC", "meishifu")
 DB_PASSWORD = os.getenv("DB_PW", "")
 DB_NAME = os.getenv("DB_NAME", "meishifu")
+DB_POOL_SIZE = max(1, int(os.getenv("DB_POOL_SIZE", "4")))
+
+# Cloud Run 的本機檔案系統不保證持久化。正式環境設定此值後，
+# 後台上傳的商品圖會寫入 Cloud Storage。
+UPLOAD_BUCKET = os.getenv("UPLOAD_BUCKET", "")
+
+# edge router 與前後台均透過同網域存取 /api，預設不需要 CORS。
+# 若要讓其他來源直接呼叫 API，可用逗號分隔來源網址。
+CORS_ORIGINS = [
+    origin.strip()
+    for origin in os.getenv("CORS_ORIGINS", "").split(",")
+    if origin.strip()
+]
 
 # JWT 簽章金鑰 (正式環境請改由環境變數提供)
 SECRET_KEY = os.getenv("SECRET_KEY", "meishifu-dev-secret-change-me")

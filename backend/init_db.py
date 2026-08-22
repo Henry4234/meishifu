@@ -10,6 +10,8 @@
                                                           ↑
                                                      package (禮盒 = 販售單位)
 """
+import os
+
 from werkzeug.security import generate_password_hash
 
 from db import get_connection
@@ -295,7 +297,13 @@ PACKAGE_MAP = [
     ("綜合手工禮盒", "堅果塔", 4),
 ]
 
-DEFAULT_ADMIN = ("admin", "meishifu2026", "管理員 A", "admin@meishifu.com", "super")
+DEFAULT_ADMIN = (
+    os.getenv("DEFAULT_ADMIN_USERNAME", "admin"),
+    os.getenv("DEFAULT_ADMIN_PASSWORD", "meishifu2026"),
+    os.getenv("DEFAULT_ADMIN_DISPLAY_NAME", "管理員 A"),
+    os.getenv("DEFAULT_ADMIN_EMAIL", "admin@meishifu.com"),
+    "super",
+)
 
 
 # ---------------------------------------------------------------- 工具

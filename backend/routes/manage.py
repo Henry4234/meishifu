@@ -4,24 +4,17 @@
     材料 unit_cost → 單品成本 Σ(配方用量 × 材料單價)
                    → 禮盒成本 Σ(內容物入數 × 單品成本) + 包材成本
 """
-import re
-import time
 from datetime import date, timedelta
-from pathlib import Path
 
 from flask import Blueprint, jsonify, request
 from werkzeug.security import generate_password_hash
-from werkzeug.utils import secure_filename
 
 import config
 import db
+from image_storage import save_upload
 from routes.admin import ROLE_LABELS, login_required, role_required
 
 manage_bp = Blueprint("manage", __name__)
-
-# 上傳圖片存到 website/assets/uploads,由前端靜態伺服器直接提供
-UPLOAD_DIR = Path(__file__).resolve().parent.parent.parent / "assets" / "uploads"
-ALLOWED_EXT = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
 
 ACTIVE_ORDER_STATUSES = ("pending", "paid")  # 尚未出貨 → 仍會消耗材料
 
@@ -303,18 +296,6 @@ def delete_product(pid):
 
 
 # ---------------------------------------------------------------- 禮盒管理 (販售單位)
-def _save_upload(file):
-    ext = Path(file.filename or "").suffix.lower()
-    if ext not in ALLOWED_EXT:
-        raise ValueError("僅接受 jpg / png / webp / gif 圖片")
-    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-    base = secure_filename(Path(file.filename).stem) or "package"
-    base = re.sub(r"[^A-Za-z0-9_-]", "", base)[:40] or "package"
-    filename = f"{base}_{int(time.time())}{ext}"
-    file.save(UPLOAD_DIR / filename)
-    return f"/assets/uploads/{filename}"
-
-
 def _all_categories():
     """標準分類清單 ∪ 資料庫既有值 (避免舊資料的分類在後台選單消失)。"""
     used = set()
@@ -423,7 +404,7 @@ def create_package():
     image_path = ""
     if "image" in request.files and request.files["image"].filename:
         try:
-            image_path = _save_upload(request.files["image"])
+            image_path = save_upload(request.files["image"])
         except ValueError as e:
             return jsonify({"error": str(e)}), 400
 
@@ -480,7 +461,7 @@ def update_package(pkg_id):
     if "image" in request.files and request.files["image"].filename:
         try:
             fields.append("image = %s")
-            args.append(_save_upload(request.files["image"]))
+            args.append(save_upload(request.files["image"]))
         except ValueError as e:
             return jsonify({"error": str(e)}), 400
     if fields:
