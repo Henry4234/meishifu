@@ -10,5 +10,20 @@
 # Cloudflare Wrangler local cache
 .wrangler/
 
-#deployed doc
-/deploy
+# Python testing / coverage artifacts
+**/__pycache__/
+**/*.py[cod]
+.pytest_cache/
+.coverage
+coverage.xml
+coverage.json
+htmlcov/
+frontend/coverage/
+admin/coverage/
+coverage-summary/
+backend/.venv/
+.venv/
+
+# Google GitHub Actions 產生的短效憑證檔
+gha-creds-*.json
+deploy/cloudflare/worker-configuration.d.ts

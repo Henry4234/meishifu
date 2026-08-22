@@ -1,0 +1,264 @@
+name: CI/CD
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-cd-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  frontend-test:
+    name: Frontend tests (coverage >= 70%)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      coverage: ${{ steps.coverage.outputs.percentage }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          package-manager-cache: false
+
+      - name: Run frontend tests and enforce coverage
+        run: |
+          mkdir -p frontend/coverage
+          node \
+            --test \
+            --experimental-test-coverage \
+            --test-coverage-lines=70 \
+            --test-coverage-include='frontend/js/site.js' \
+            --test-reporter=spec \
+            --test-reporter=lcov \
+            --test-reporter-destination=stdout \
+            --test-reporter-destination=frontend/coverage/lcov.info \
+            frontend/tests/site.test.js
+
+      - name: Read frontend coverage percentage
+        id: coverage
+        run: |
+          percentage="$(awk -F: '/^LF:/{lines+=$2} /^LH:/{hits+=$2} END { if (!lines) exit 1; printf "%.2f", hits * 100 / lines }' frontend/coverage/lcov.info)"
+          echo "percentage=${percentage}" >> "${GITHUB_OUTPUT}"
+          echo "Frontend coverage: ${percentage}%"
+
+      - name: Upload frontend coverage report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: frontend-coverage-${{ github.sha }}
+          path: frontend/coverage/lcov.info
+          if-no-files-found: warn
+          retention-days: 14
+
+  admin-test:
+    name: Admin tests (coverage >= 70%)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      coverage: ${{ steps.coverage.outputs.percentage }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          package-manager-cache: false
+
+      - name: Run admin tests and enforce coverage
+        run: |
+          mkdir -p admin/coverage
+          node \
+            --test \
+            --experimental-test-coverage \
+            --test-coverage-lines=70 \
+            --test-coverage-include='admin/js/admin.js' \
+            --test-reporter=spec \
+            --test-reporter=lcov \
+            --test-reporter-destination=stdout \
+            --test-reporter-destination=admin/coverage/lcov.info \
+            admin/tests/admin.test.js
+
+      - name: Read admin coverage percentage
+        id: coverage
+        run: |
+          percentage="$(awk -F: '/^LF:/{lines+=$2} /^LH:/{hits+=$2} END { if (!lines) exit 1; printf "%.2f", hits * 100 / lines }' admin/coverage/lcov.info)"
+          echo "percentage=${percentage}" >> "${GITHUB_OUTPUT}"
+          echo "Admin coverage: ${percentage}%"
+
+      - name: Upload admin coverage report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: admin-coverage-${{ github.sha }}
+          path: admin/coverage/lcov.info
+          if-no-files-found: warn
+          retention-days: 14
+
+  backend-test:
+    name: Backend tests (coverage >= 70%)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    outputs:
+      coverage: ${{ steps.coverage.outputs.percentage }}
+    defaults:
+      run:
+        working-directory: backend
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+
+      - name: Install locked dependencies
+        run: uv sync --frozen --dev
+
+      - name: Run backend tests and enforce coverage
+        run: >-
+          uv run pytest
+          --cov=.
+          --cov-report=term-missing
+          --cov-report=xml:coverage.xml
+          --cov-report=json:coverage.json
+          --cov-fail-under=70
+
+      - name: Read backend coverage percentage
+        id: coverage
+        run: |
+          percentage="$(python -c 'import json; print("%.2f" % json.load(open("coverage.json"))["totals"]["percent_covered"])')"
+          echo "percentage=${percentage}" >> "${GITHUB_OUTPUT}"
+          echo "Backend coverage: ${percentage}%"
+
+      - name: Upload backend coverage reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: backend-coverage-${{ github.sha }}
+          path: |
+            backend/coverage.xml
+            backend/coverage.json
+          if-no-files-found: warn
+          retention-days: 14
+
+  coverage-report:
+    name: Container coverage report
+    if: always()
+    needs: [frontend-test, admin-test, backend-test]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Create consolidated coverage report
+        env:
+          FRONTEND_COVERAGE: ${{ needs.frontend-test.outputs.coverage }}
+          ADMIN_COVERAGE: ${{ needs.admin-test.outputs.coverage }}
+          BACKEND_COVERAGE: ${{ needs.backend-test.outputs.coverage }}
+          FRONTEND_RESULT: ${{ needs.frontend-test.result }}
+          ADMIN_RESULT: ${{ needs.admin-test.result }}
+          BACKEND_RESULT: ${{ needs.backend-test.result }}
+        run: |
+          mkdir -p coverage-summary
+          frontend_coverage="${FRONTEND_COVERAGE:-N/A}"
+          admin_coverage="${ADMIN_COVERAGE:-N/A}"
+          backend_coverage="${BACKEND_COVERAGE:-N/A}"
+
+          {
+            echo "# Container coverage report"
+            echo
+            echo "Commit: \`${GITHUB_SHA}\`"
+            echo
+            echo "| Container | Coverage | Required | Test result |"
+            echo "|---|---:|---:|---|"
+            echo "| frontend | ${frontend_coverage}% | 70% | ${FRONTEND_RESULT} |"
+            echo "| admin | ${admin_coverage}% | 70% | ${ADMIN_RESULT} |"
+            echo "| backend | ${backend_coverage}% | 70% | ${BACKEND_RESULT} |"
+          } | tee coverage-summary/coverage-summary.md
+
+          cat coverage-summary/coverage-summary.md >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Upload consolidated coverage report
+        uses: actions/upload-artifact@v7
+        with:
+          name: container-coverage-summary-${{ github.sha }}
+          path: coverage-summary/coverage-summary.md
+          if-no-files-found: error
+          retention-days: 14
+
+  deploy:
+    name: Deploy to GCP Cloud Run
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    needs: [frontend-test, admin-test, backend-test, coverage-report]
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Validate GCP federation variables
+        env:
+          WIF_PROVIDER: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          DEPLOYER_SERVICE_ACCOUNT: ${{ vars.GCP_SERVICE_ACCOUNT }}
+        run: |
+          test -n "${WIF_PROVIDER}" || { echo "Missing GCP_WORKLOAD_IDENTITY_PROVIDER repository variable" >&2; exit 1; }
+          test -n "${DEPLOYER_SERVICE_ACCOUNT}" || { echo "Missing GCP_SERVICE_ACCOUNT repository variable" >&2; exit 1; }
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v3
+        with:
+          project_id: meishifu
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up gcloud SDK
+        uses: google-github-actions/setup-gcloud@v3
+        with:
+          project_id: meishifu
+
+      - name: Build, push, and deploy immutable revision
+        env:
+          PROJECT_ID: meishifu
+          REGION: asia-east1
+          TAG: ${{ github.sha }}
+        run: bash deploy/gcp/deploy-ci.sh
+
+      - name: Smoke test deployed services
+        env:
+          PROJECT_ID: meishifu
+          REGION: asia-east1
+        run: |
+          backend_url="$(gcloud run services describe meishifu-backend --project "${PROJECT_ID}" --region "${REGION}" --format='value(status.url)')"
+          frontend_url="$(gcloud run services describe meishifu-frontend --project "${PROJECT_ID}" --region "${REGION}" --format='value(status.url)')"
+          admin_url="$(gcloud run services describe meishifu-admin --project "${PROJECT_ID}" --region "${REGION}" --format='value(status.url)')"
+
+          curl --fail --silent --show-error --retry 5 --retry-all-errors "${backend_url}/api/health"
+          curl --fail --silent --show-error --retry 5 --retry-all-errors "${frontend_url}/healthz"
+          curl --fail --silent --show-error --retry 5 --retry-all-errors "${admin_url}/healthz"
+          curl --fail --silent --show-error --retry 5 --retry-all-errors "https://meishifu.org/api/health"

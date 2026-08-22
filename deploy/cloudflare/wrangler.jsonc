@@ -1,0 +1,28 @@
+{
+  "name": "meishifu-edge",
+  "main": "worker.ts",
+  "compatibility_date": "2026-08-21",
+  "workers_dev": false,
+  "routes": [
+    {
+      "pattern": "meishifu.org",
+      "custom_domain": true
+    }
+  ],
+  "vars": {
+    "FRONTEND_ORIGIN": "https://meishifu-frontend-729707774647.asia-east1.run.app",
+    "ADMIN_ORIGIN": "https://meishifu-admin-729707774647.asia-east1.run.app",
+    "BACKEND_ORIGIN": "https://meishifu-backend-729707774647.asia-east1.run.app"
+  },
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1
+    },
+    "traces": {
+      "enabled": true,
+      "head_sampling_rate": 0.01
+    }
+  }
+}

@@ -1,0 +1,31 @@
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --file=frontend/Dockerfile
+      - --tag=${_REGION}-docker.pkg.dev/$PROJECT_ID/meishifu/frontend:${_TAG}
+      - .
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --file=admin/Dockerfile
+      - --tag=${_REGION}-docker.pkg.dev/$PROJECT_ID/meishifu/admin:${_TAG}
+      - .
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --file=backend/Dockerfile
+      - --tag=${_REGION}-docker.pkg.dev/$PROJECT_ID/meishifu/backend:${_TAG}
+      - .
+
+images:
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/meishifu/frontend:${_TAG}
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/meishifu/admin:${_TAG}
+  - ${_REGION}-docker.pkg.dev/$PROJECT_ID/meishifu/backend:${_TAG}
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+substitutions:
+  _REGION: asia-east1
+  _TAG: latest

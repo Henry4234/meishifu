@@ -1,5 +1,5 @@
 """後台管理 API:登入 (JWT)、儀表板統計、訂單管理。"""
-from datetime import datetime, timedelta, date
+from datetime import date, datetime, timedelta, timezone
 from functools import wraps
 
 import jwt
@@ -34,7 +34,7 @@ def _make_token(admin):
         "username": admin["username"],
         "display_name": admin["display_name"],
         "role": admin.get("role") or "staff",
-        "exp": datetime.utcnow() + timedelta(hours=config.JWT_EXPIRE_HOURS),
+        "exp": datetime.now(timezone.utc) + timedelta(hours=config.JWT_EXPIRE_HOURS),
     }
     return jwt.encode(payload, config.SECRET_KEY, algorithm="HS256")
 
