@@ -6,6 +6,9 @@ REGION="${REGION:-asia-east1}"
 TAG="${TAG:-$(git rev-parse --short HEAD)}"
 REPOSITORY="meishifu"
 RUNTIME_SERVICE_ACCOUNT="meishifu-runtime@${PROJECT_ID}.iam.gserviceaccount.com"
+TAILSCALE_SECRET="${TAILSCALE_SECRET:-tailscale-auth-key}"
+TAILSCALE_DB_HOST="${TAILSCALE_DB_HOST:-100.74.151.0}"
+TAILSCALE_DB_PORT="${TAILSCALE_DB_PORT:-3306}"
 
 if [[ -z "${DB_AC:-}" || -z "${DB_PW:-}" ]]; then
   echo "DB_AC and DB_PW must be set in the environment." >&2
@@ -87,6 +90,19 @@ else
   ensure_secret meishifu-admin-password "$(openssl rand -base64 24)"
 fi
 
+# Tailscale auth key 不應保存在 repository。若環境提供新 key 才新增版本；否則
+# 沿用既有 secret，並只確認 Cloud Run runtime identity 具有讀取權限。
+if [[ -n "${TAILSCALE_AUTHKEY:-}" ]]; then
+  put_secret "${TAILSCALE_SECRET}" "${TAILSCALE_AUTHKEY}"
+elif "${GCLOUD_BIN}" secrets describe "${TAILSCALE_SECRET}" >/dev/null 2>&1; then
+  "${GCLOUD_BIN}" secrets add-iam-policy-binding "${TAILSCALE_SECRET}" \
+    --member "serviceAccount:${RUNTIME_SERVICE_ACCOUNT}" \
+    --role roles/secretmanager.secretAccessor >/dev/null
+else
+  echo "Secret ${TAILSCALE_SECRET} does not exist. Set TAILSCALE_AUTHKEY once before deploying." >&2
+  exit 2
+fi
+
 "${GCLOUD_BIN}" builds submit . \
   --config deploy/cloudbuild.yaml \
   --substitutions "_REGION=${REGION},_TAG=${TAG}"
@@ -99,8 +115,8 @@ IMAGE_BASE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}"
   --port 8080 \
   --allow-unauthenticated \
   --ingress all \
-  --set-env-vars "DB_HOST=114.35.125.200,DB_PORT=3306,DB_NAME=${DB_NAME:-meishifu},DB_POOL_SIZE=${DB_POOL_SIZE:-4},UPLOAD_BUCKET=${UPLOAD_BUCKET},PAY_NOTIFY_URL=https://meishifu.org/api/payment/notify,PAY_RETURN_URL=https://meishifu.org/cart.html" \
-  --set-secrets "DB_AC=meishifu-db-user:latest,DB_PW=meishifu-db-password:latest,SECRET_KEY=meishifu-secret-key:latest"
+  --set-env-vars "DB_HOST=127.0.0.1,DB_PORT=13306,DB_NAME=${DB_NAME:-meishifu},DB_POOL_SIZE=${DB_POOL_SIZE:-4},UPLOAD_BUCKET=${UPLOAD_BUCKET},PAY_NOTIFY_URL=https://meishifu.org/api/payment/notify,PAY_RETURN_URL=https://meishifu.org/cart.html,TAILSCALE_ENABLED=true,TAILSCALE_DB_HOST=${TAILSCALE_DB_HOST},TAILSCALE_DB_PORT=${TAILSCALE_DB_PORT},TAILSCALE_HOSTNAME=meishifu-backend" \
+  --set-secrets "DB_AC=meishifu-db-user:latest,DB_PW=meishifu-db-password:latest,SECRET_KEY=meishifu-secret-key:latest,TAILSCALE_AUTHKEY=${TAILSCALE_SECRET}:latest"
 
 "${GCLOUD_BIN}" run deploy meishifu-frontend \
   --image "${IMAGE_BASE}/frontend:${TAG}" \
@@ -118,10 +134,10 @@ if [[ "${RUN_DB_INIT:-false}" == "true" ]]; then
   "${GCLOUD_BIN}" run jobs deploy meishifu-db-init \
     --image "${IMAGE_BASE}/backend:${TAG}" \
     --service-account "${RUNTIME_SERVICE_ACCOUNT}" \
-    --set-env-vars "DB_HOST=114.35.125.200,DB_PORT=3306,DB_NAME=${DB_NAME:-meishifu}" \
-    --set-secrets "DB_AC=meishifu-db-user:latest,DB_PW=meishifu-db-password:latest,DEFAULT_ADMIN_PASSWORD=meishifu-admin-password:latest" \
-    --command python \
-    --args init_db.py \
+    --set-env-vars "DB_HOST=127.0.0.1,DB_PORT=13306,DB_NAME=${DB_NAME:-meishifu},TAILSCALE_ENABLED=true,TAILSCALE_DB_HOST=${TAILSCALE_DB_HOST},TAILSCALE_DB_PORT=${TAILSCALE_DB_PORT},TAILSCALE_HOSTNAME=meishifu-db-init" \
+    --set-secrets "DB_AC=meishifu-db-user:latest,DB_PW=meishifu-db-password:latest,DEFAULT_ADMIN_PASSWORD=meishifu-admin-password:latest,TAILSCALE_AUTHKEY=${TAILSCALE_SECRET}:latest" \
+    --command /app/backend/start-with-tailscale.sh \
+    --args python,init_db.py \
     --max-retries 1 \
     --task-timeout 10m
 

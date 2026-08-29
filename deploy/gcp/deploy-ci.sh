@@ -10,6 +10,9 @@ REGION="${REGION:-asia-east1}"
 TAG="${TAG:-$(git rev-parse HEAD)}"
 REPOSITORY="${REPOSITORY:-meishifu}"
 GCLOUD_BIN="${GCLOUD_BIN:-gcloud}"
+TAILSCALE_SECRET="${TAILSCALE_SECRET:-tailscale-auth-key}"
+TAILSCALE_DB_HOST="${TAILSCALE_DB_HOST:-100.74.151.0}"
+TAILSCALE_DB_PORT="${TAILSCALE_DB_PORT:-3306}"
 
 if [[ ! "${PROJECT_NUMBER}" =~ ^[0-9]+$ ]]; then
   echo "PROJECT_NUMBER must contain digits only." >&2
@@ -39,8 +42,8 @@ docker push "${IMAGE_BASE}/backend:${TAG}"
   --service-account "${RUNTIME_SERVICE_ACCOUNT}" \
   --port 8080 \
   --ingress all \
-  --set-env-vars "DB_HOST=114.35.125.200,DB_PORT=3306,DB_NAME=meishifu,DB_POOL_SIZE=4,UPLOAD_BUCKET=${UPLOAD_BUCKET},PAY_NOTIFY_URL=https://meishifu.org/api/payment/notify,PAY_RETURN_URL=https://meishifu.org/cart.html" \
-  --set-secrets "DB_AC=meishifu-db-user:latest,DB_PW=meishifu-db-password:latest,SECRET_KEY=meishifu-secret-key:latest" \
+  --set-env-vars "DB_HOST=127.0.0.1,DB_PORT=13306,DB_NAME=meishifu,DB_POOL_SIZE=4,UPLOAD_BUCKET=${UPLOAD_BUCKET},PAY_NOTIFY_URL=https://meishifu.org/api/payment/notify,PAY_RETURN_URL=https://meishifu.org/cart.html,TAILSCALE_ENABLED=true,TAILSCALE_DB_HOST=${TAILSCALE_DB_HOST},TAILSCALE_DB_PORT=${TAILSCALE_DB_PORT},TAILSCALE_HOSTNAME=meishifu-backend" \
+  --set-secrets "DB_AC=meishifu-db-user:latest,DB_PW=meishifu-db-password:latest,SECRET_KEY=meishifu-secret-key:latest,TAILSCALE_AUTHKEY=${TAILSCALE_SECRET}:latest" \
   --quiet
 
 "${GCLOUD_BIN}" run deploy meishifu-frontend \

@@ -113,6 +113,9 @@ docker compose down
   `https://meishifu.org/api/*`
 - 商品上傳圖片儲存在私有 bucket:`meishifu-uploads-729707774647`
 - DB/JWT 憑證只存在 Secret Manager，不寫入 image 或 repository。
+- Backend 透過 Tailscale userspace SOCKS5 與 container-local TCP proxy 連私有 MySQL；
+  不再由 production 設定直接連公開 DB IP。詳見
+  [Cloud Run 透過 Tailscale 連 MySQL](docs/TAILSCALE-DB.md)。
 
 部署定義位於 `deploy/cloudbuild.yaml`、`deploy/gcp/deploy.sh` 與
 `deploy/cloudflare/`。所有 GCP 操作都由 `gcloud` SDK 執行；GCP 腳本需要由環境
