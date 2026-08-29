@@ -128,6 +128,12 @@ bash deploy/gcp/bootstrap-github-actions.sh
 4. workflow 對三個 Cloud Run origins，以及 `meishifu.org` 的 API、官網與 management
    路由執行 smoke test。
 
+Backend production DB 流量改經 Tailscale userspace networking。CI 將 PyMySQL 指到
+容器內 `127.0.0.1:13306` proxy，proxy 再經 Tailscale SOCKS5 連
+`100.74.151.0:3306`；auth key 引用既有 Secret Manager `tailscale-auth-key`。容器在
+Gunicorn 啟動前會驗證此 private DB path，驗證失敗會使 deployment 失敗並觸發
+rollback。設定、key 輪替與 tailnet grant 詳見 [Cloud Run 透過 Tailscale 連 MySQL](TAILSCALE-DB.md)。
+
 Cloud Run 保留部分以 `z` 結尾的 URL path，官方建議避免所有這類 path。因此 frontend
 與 admin 使用 `/health`，而不是會在 Google Frontend 被攔截的 `/healthz`。詳見
 [Cloud Run reserved URL paths](https://docs.cloud.google.com/run/docs/known-issues#reserved-url-paths)。

@@ -7,8 +7,10 @@ from dotenv import load_dotenv
 # .env 位於 website 專案根目錄 (backend 的上一層)
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
-DB_HOST = os.getenv("DB_HOST", "114.35.125.200")
-DB_PORT = int(os.getenv("DB_port", os.getenv("DB_PORT", "3306")))
+# Cloud Run 透過容器內的 Tailscale SOCKS5 TCP proxy 連 MySQL；本機開發可在
+# .env 直接覆寫為實際 DB host/port。
+DB_HOST = os.getenv("DB_HOST", "127.0.0.1")
+DB_PORT = int(os.getenv("DB_port", os.getenv("DB_PORT", "13306")))
 DB_USER = os.getenv("DB_AC", "meishifu")
 DB_PASSWORD = os.getenv("DB_PW", "")
 DB_NAME = os.getenv("DB_NAME", "meishifu")

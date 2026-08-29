@@ -136,6 +136,9 @@ jobs:
       - name: Install locked dependencies
         run: uv sync --frozen --dev
 
+      - name: Validate backend startup script
+        run: bash -n start-with-tailscale.sh
+
       - name: Run backend tests and enforce coverage
         run: >-
           uv run pytest
