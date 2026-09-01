@@ -50,6 +50,8 @@ ECPAY_MERCHANT_ID = os.getenv("ECPAY_MERCHANT_ID", "2000132")
 ECPAY_HASH_KEY = os.getenv("ECPAY_HASH_KEY", "5294y06JbISpM5x9")
 ECPAY_HASH_IV = os.getenv("ECPAY_HASH_IV", "v77hoKGq4kWxNNIS")
 ECPAY_ENV = os.getenv("ECPAY_ENV", "stage").lower()          # stage | production
+if ECPAY_ENV not in ("stage", "production"):
+    raise RuntimeError("ECPAY_ENV must be 'stage' or 'production'")
 
 ECPAY_AIO_URL = (
     "https://payment.ecpay.com.tw/Cashier/AioCheckOut/V5"
@@ -61,6 +63,8 @@ ECPAY_AIO_URL = (
 PAY_NOTIFY_URL = os.getenv("PAY_NOTIFY_URL", BACKEND_BASE_URL + "/api/payment/notify")
 # 綠界付款完成後,由消費者瀏覽器 POST 回來的網址 (本後端驗章後再導回前台)
 PAY_RESULT_URL = os.getenv("PAY_RESULT_URL", BACKEND_BASE_URL + "/api/payment/result")
+# ATM/CVS/BARCODE 取號結果通知；可與 ReturnURL 共用同一個驗章端點。
+PAY_INFO_URL = os.getenv("PAY_INFO_URL", BACKEND_BASE_URL + "/api/payment/notify")
 # 前台結帳結果頁
 PAY_RETURN_URL = os.getenv("PAY_RETURN_URL", FRONTEND_BASE_URL + "/cart.html")
 
@@ -68,10 +72,13 @@ PAY_RETURN_URL = os.getenv("PAY_RETURN_URL", FRONTEND_BASE_URL + "/cart.html")
 # 物流的商店代號與金流是兩組不同的帳號。預設為綠界 C2C 測試特店 (2000933),
 # 因為全家店到店 / 7-11 交貨便屬於 C2C (FAMIC2C / UNIMARTC2C)。
 ECPAY_LOGISTICS_MERCHANT_ID = os.getenv("ECPAY_LOGISTICS_MERCHANT_ID", "2000933")
+ECPAY_LOGISTICS_ENV = os.getenv("ECPAY_LOGISTICS_ENV", "stage").lower()
+if ECPAY_LOGISTICS_ENV not in ("stage", "production"):
+    raise RuntimeError("ECPAY_LOGISTICS_ENV must be 'stage' or 'production'")
 
 ECPAY_MAP_URL = (
     "https://logistics.ecpay.com.tw/Express/map"
-    if ECPAY_ENV == "production"
+    if ECPAY_LOGISTICS_ENV == "production"
     else "https://logistics-stage.ecpay.com.tw/Express/map"
 )
 # 消費者在電子地圖選好門市後,綠界會 POST 到這個網址 (需公開可連)。

@@ -61,7 +61,8 @@ def check_mac_value(params: dict, hash_key: str = None, hash_iv: str = None) -> 
 def verify(params: dict) -> bool:
     """驗證綠界回傳的 CheckMacValue 是否正確 (防止偽造付款結果)。"""
     received = (params.get("CheckMacValue") or "").upper()
-    return bool(received) and received == check_mac_value(params)
+    expected = check_mac_value(params)
+    return bool(received) and hmac.compare_digest(received, expected)
 
 
 def _item_name(items, shipping_fee: int) -> str:
@@ -98,6 +99,7 @@ def build_checkout(order_no: str, total: int, payment_method: str, items, shippi
     }
     if params["ChoosePayment"] == "ATM":
         params["ExpireDate"] = "3"                         # ATM 虛擬帳號 3 天內有效
+        params["PaymentInfoURL"] = config.PAY_INFO_URL      # 取號結果由同一驗章端點接收
     params["CheckMacValue"] = check_mac_value(params)
     return {
         "gateway": "ecpay",

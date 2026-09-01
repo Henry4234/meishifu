@@ -22,6 +22,10 @@ log = logging.getLogger(__name__)
 
 def _mark_paid(order_no: str, data: dict) -> str:
     """驗證並將訂單標記為已付款。回傳 'paid' / 'pending' / 錯誤原因。"""
+    if str(data.get("SimulatePaid", "0")) == "1":
+        log.warning("忽略綠界模擬付款通知: %s", order_no)
+        return "simulated"
+
     order = db.query_one(
         "SELECT id, order_no, customer_name, email, total, payment_status FROM orders"
         " WHERE order_no = %s", (order_no,))
@@ -70,7 +74,7 @@ def notify():
         return "0|CheckMacValue Error"
 
     result = _mark_paid(data.get("MerchantTradeNo", ""), data)
-    if result in ("paid", "pending"):
+    if result in ("paid", "pending", "simulated"):
         return "1|OK"
     return "0|FAIL"
 
@@ -105,6 +109,9 @@ def status(order_no):
 @payment_bp.post("/mock-pay")
 def mock_pay():
     """開發用:模擬付款成功,將訂單標記為已付款。上線前移除。"""
+    if config.ECPAY_ENV == "production":
+        return jsonify({"error": "Not Found"}), 404
+
     data = request.get_json(silent=True) or {}
     order_no = data.get("order_no", "")
     # 先確認訂單存在,查無訂單就不要對資料庫下無謂的 UPDATE。

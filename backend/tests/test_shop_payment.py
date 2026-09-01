@@ -378,8 +378,27 @@ def test_logistics_map_endpoints(client):
     assert json.loads(other.split("var payload = ", 1)[1].split(";\n", 1)[0])["store"]["method"] == ""
 
 
+def test_ecpay_official_check_mac_value_vector():
+    """以附件官方 Skill 的 AIO 測試向量驗證固定輸出。"""
+    params = {
+        "MerchantID": "3002607",
+        "MerchantTradeNo": "Test1234567890",
+        "MerchantTradeDate": "2025/01/01 12:00:00",
+        "PaymentType": "aio",
+        "TotalAmount": "100",
+        "TradeDesc": "測試",
+        "ItemName": "測試商品",
+        "ReturnURL": "https://example.com/notify",
+        "ChoosePayment": "ALL",
+        "EncryptType": "1",
+    }
+    assert ecpay.check_mac_value(
+        params, "pwFHCqoQZGmho4w6", "EkRm7iFT261dpevs"
+    ) == "291CBA324D31FB5A4BBBFDF2CFE5D32598524753AFD4959C3BF590C5B2F57FB2"
+
+
 def test_ecpay_check_mac_value():
-    """以綠界文件的範例參數驗證 CheckMacValue 演算法。"""
+    """驗證 CheckMacValue 的穩定性、欄位變動與 callback 比對。"""
     params = {
         "MerchantID": "2000132",
         "MerchantTradeNo": "MS2026010112000012",
@@ -410,6 +429,7 @@ def test_ecpay_build_checkout_atm():
     params = checkout["params"]
     assert params["ChoosePayment"] == "ATM"
     assert params["ExpireDate"] == "3"
+    assert params["PaymentInfoURL"] == config.PAY_INFO_URL
     assert "運費 NT$70 x 1" in params["ItemName"]
     assert params["ItemName"].startswith("禮盒 A NT$500 x 2")  # 商品名內的 # 已被取代
     assert params["ClientBackURL"].endswith("order_no=MS-ATM")
@@ -444,6 +464,11 @@ def test_payment_notify(client, monkeypatch):
     assert forged.get_data(as_text=True) == "0|CheckMacValue Error"
     assert client.post("/api/payment/notify", data=_signed(TradeAmt="1")).get_data(as_text=True) == "0|FAIL"
     assert client.post("/api/payment/notify", data=_signed(RtnCode="10100248")).get_data(as_text=True) == "0|FAIL"
+    assert not calls
+
+    # 正式後台的模擬付款通知只需回覆已收到，不得更新訂單。
+    simulated = client.post("/api/payment/notify", data=_signed(SimulatePaid="1"))
+    assert simulated.get_data(as_text=True) == "1|OK"
     assert not calls
 
     # ATM 取號成功:仍是未付款,但記下虛擬帳號
@@ -485,6 +510,9 @@ def test_payment_status_and_mock_pay(client, monkeypatch):
     assert body["payment_label"] == "銀行 ATM 轉帳"
     assert body["shipping_label"] == "7-11 交貨便"
     assert client.post("/api/payment/mock-pay", json={"order_no": "MS1"}).get_json()["status"] == "paid"
+
+    monkeypatch.setattr(config, "ECPAY_ENV", "production")
+    assert client.post("/api/payment/mock-pay", json={"order_no": "MS1"}).status_code == 404
 
 
 def test_mailer_renders_and_skips_without_smtp(monkeypatch):

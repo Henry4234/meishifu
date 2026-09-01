@@ -245,6 +245,24 @@ jobs:
         with:
           project_id: meishifu
 
+      - name: Validate ECPay deployment configuration
+        env:
+          ECPAY_ENV: production
+          ECPAY_MERCHANT_ID: "3511953"
+          ECPAY_LOGISTICS_ENV: stage
+          ECPAY_HASH_KEY_SECRET: meishifu-ecpay-hash-key
+          ECPAY_HASH_IV_SECRET: meishifu-ecpay-hash-iv
+          BACKEND_BASE_URL: https://meishifu-backend-729707774647.asia-east1.run.app
+          FRONTEND_BASE_URL: https://meishifu.org
+        run: |
+          test "${ECPAY_ENV}" = "production" || { echo "ECPAY_ENV must be production" >&2; exit 1; }
+          test -n "${ECPAY_MERCHANT_ID}" || { echo "Missing ECPAY_MERCHANT_ID" >&2; exit 1; }
+          test "${ECPAY_LOGISTICS_ENV}" = "stage" || { echo "Production logistics credentials are not configured" >&2; exit 1; }
+          test -n "${ECPAY_HASH_KEY_SECRET}" || { echo "Missing ECPAY_HASH_KEY_SECRET" >&2; exit 1; }
+          test -n "${ECPAY_HASH_IV_SECRET}" || { echo "Missing ECPAY_HASH_IV_SECRET" >&2; exit 1; }
+          test "${BACKEND_BASE_URL}" = "https://meishifu-backend-729707774647.asia-east1.run.app" || { echo "Unexpected BACKEND_BASE_URL" >&2; exit 1; }
+          test "${FRONTEND_BASE_URL}" = "https://meishifu.org" || { echo "Unexpected FRONTEND_BASE_URL" >&2; exit 1; }
+
       - name: Capture currently serving revisions
         id: previous_revisions
         env:
@@ -279,6 +297,13 @@ jobs:
           PROJECT_NUMBER: "729707774647"
           REGION: asia-east1
           TAG: ${{ github.sha }}
+          ECPAY_ENV: production
+          ECPAY_MERCHANT_ID: "3511953"
+          ECPAY_LOGISTICS_ENV: stage
+          ECPAY_HASH_KEY_SECRET: meishifu-ecpay-hash-key
+          ECPAY_HASH_IV_SECRET: meishifu-ecpay-hash-iv
+          BACKEND_BASE_URL: https://meishifu-backend-729707774647.asia-east1.run.app
+          FRONTEND_BASE_URL: https://meishifu.org
         run: bash deploy/gcp/deploy-ci.sh
 
       - name: Smoke test deployed services

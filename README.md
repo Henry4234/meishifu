@@ -165,7 +165,7 @@ docker compose down
 - 公開路由:`https://meishifu.org/`、`https://meishifu.org/management/`、
   `https://meishifu.org/api/*`
 - 商品上傳圖片儲存在私有 bucket:`meishifu-uploads-729707774647`
-- DB/JWT 憑證只存在 Secret Manager，不寫入 image 或 repository。
+- DB/JWT 憑證與 ECPay HashKey/HashIV 只存在 Secret Manager，不寫入 image 或 repository。
 - Backend 透過 Tailscale userspace SOCKS5 與 container-local TCP proxy 連私有 MySQL；
   不再由 production 設定直接連公開 DB IP。詳見
   [Cloud Run 透過 Tailscale 連 MySQL](docs/TAILSCALE-DB.md)。
@@ -218,7 +218,7 @@ Federation 部署三個 Cloud Run services，不使用長效 GCP JSON key。
 | GET | /api/payment/status/:order_no | 前台結帳結果頁查詢付款狀態 |
 | GET | /api/logistics/map?method=fami\|unimart | 導向綠界電子地圖選擇取件門市 |
 | POST | /api/logistics/map-reply | 綠界回傳選定門市,簽章後帶回購物車頁 |
-| POST | /api/payment/mock-pay | 開發用模擬付款 (上線前移除) |
+| POST | /api/payment/mock-pay | 開發用模擬付款 (`ECPAY_ENV=production` 時停用) |
 
 ### 後台 (JWT,`Authorization: Bearer <token>`)
 | Method | Path | 說明 |
