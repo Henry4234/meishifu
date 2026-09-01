@@ -32,21 +32,62 @@ CORS_ORIGINS = [
 SECRET_KEY = os.getenv("SECRET_KEY", "meishifu-dev-secret-change-me")
 JWT_EXPIRE_HOURS = 8
 
-# 金流公司對接設定 (預留;正式串接時填入金流商提供的參數)
-PAYMENT_GATEWAY = {
-    "provider": os.getenv("PAY_PROVIDER", "TBD"),          # 例: ecpay / newebpay
-    "merchant_id": os.getenv("PAY_MERCHANT_ID", ""),
-    "hash_key": os.getenv("PAY_HASH_KEY", ""),
-    "hash_iv": os.getenv("PAY_HASH_IV", ""),
-    "api_url": os.getenv("PAY_API_URL", ""),
-    # 金流商付款完成後回呼本後端的網址
-    "notify_url": os.getenv("PAY_NOTIFY_URL", "http://localhost:5001/api/payment/notify"),
-    # 付款完成後導回前端的網址
-    "return_url": os.getenv("PAY_RETURN_URL", "http://localhost:5500/frontend/cart.html"),
+# 對外網址 (組合金流回呼網址用)。正式環境請覆寫為實際網域。
+BACKEND_BASE_URL = os.getenv("BACKEND_BASE_URL", "http://localhost:5001").rstrip("/")
+FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "http://localhost:5500/frontend").rstrip("/")
+
+# ---------------------------------------------------------------- 金流 (綠界 ECPay)
+# 預設值為綠界官方「測試商店」參數,可直接用測試信用卡完成全流程;
+# 正式上線時於 .env 覆寫 ECPAY_MERCHANT_ID / ECPAY_HASH_KEY / ECPAY_HASH_IV
+# 並將 ECPAY_ENV 設為 production。
+ECPAY_MERCHANT_ID = os.getenv("ECPAY_MERCHANT_ID", "2000132")
+ECPAY_HASH_KEY = os.getenv("ECPAY_HASH_KEY", "5294y06JbISpM5x9")
+ECPAY_HASH_IV = os.getenv("ECPAY_HASH_IV", "v77hoKGq4kWxNNIS")
+ECPAY_ENV = os.getenv("ECPAY_ENV", "stage").lower()          # stage | production
+
+ECPAY_AIO_URL = (
+    "https://payment.ecpay.com.tw/Cashier/AioCheckOut/V5"
+    if ECPAY_ENV == "production"
+    else "https://payment-stage.ecpay.com.tw/Cashier/AioCheckOut/V5"
+)
+
+# 綠界 server-to-server 付款結果通知 (必須是公開網址,本機開發收不到)
+PAY_NOTIFY_URL = os.getenv("PAY_NOTIFY_URL", BACKEND_BASE_URL + "/api/payment/notify")
+# 綠界付款完成後,由消費者瀏覽器 POST 回來的網址 (本後端驗章後再導回前台)
+PAY_RESULT_URL = os.getenv("PAY_RESULT_URL", BACKEND_BASE_URL + "/api/payment/result")
+# 前台結帳結果頁
+PAY_RETURN_URL = os.getenv("PAY_RETURN_URL", FRONTEND_BASE_URL + "/cart.html")
+
+# ---------------------------------------------------------------- 訂單通知信 (SMTP)
+# 未設定 SMTP_HOST 時不寄信,只在後端 log 印出信件內容 (本機開發用)。
+MAIL = {
+    "host": os.getenv("SMTP_HOST", ""),
+    "port": int(os.getenv("SMTP_PORT", "587")),
+    "user": os.getenv("SMTP_USER", ""),
+    "password": os.getenv("SMTP_PASSWORD", ""),
+    "use_tls": os.getenv("SMTP_USE_TLS", "true").lower() in ("1", "true", "yes"),
+    "use_ssl": os.getenv("SMTP_USE_SSL", "").lower() in ("1", "true", "yes"),
+    "sender": os.getenv("MAIL_FROM", os.getenv("SMTP_USER", "no-reply@meishifu.org")),
+    "sender_name": os.getenv("MAIL_FROM_NAME", "美師傅 meishifu"),
+    "timeout": int(os.getenv("SMTP_TIMEOUT", "15")),
 }
 
 FREE_SHIPPING_THRESHOLD = 2000
-SHIPPING_FEE = 120
+SHIPPING_FEE = 120          # 宅配運費
+CVS_SHIPPING_FEE = 70       # 超商店到店運費 (全家 / 7-11 交貨便)
+
+# 配送方式代碼 → 顯示名稱 (前後台與通知信共用)
+SHIPPING_LABELS = {
+    "delivery": "宅配到府",
+    "fami": "全家店到店",
+    "unimart": "7-11 交貨便",
+    "pickup": "門市自取",      # 舊訂單相容,前台已不再提供
+}
+
+PAYMENT_LABELS = {
+    "credit": "信用卡",
+    "transfer": "銀行 ATM 轉帳",
+}
 
 # 商品分類 (前後台共用的標準清單,順序即前台側邊選單的顯示順序)
 PACKAGE_CATEGORIES = [

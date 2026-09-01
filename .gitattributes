@@ -1,0 +1,8 @@
+# Windows 開發機的 core.autocrlf 會把 shell script 轉成 CRLF,
+# 進到 Linux 容器後 shebang 變成 `bash\r` 而啟動失敗 (exit 127)。
+# 這類進到容器/CI 執行的檔案一律固定 LF。
+* text=auto
+
+*.sh text eol=lf
+Dockerfile text eol=lf
+*.conf text eol=lf

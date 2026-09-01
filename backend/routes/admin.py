@@ -168,6 +168,32 @@ def list_orders():
     return jsonify({"orders": rows, "total": total, "page": page, "per_page": per_page})
 
 
+@admin_bp.get("/orders/updates")
+@login_required
+def order_updates():
+    """前台成立新訂單的輪詢通知:回傳 id 大於 since_id 的訂單。
+
+    後台各頁載入 admin.js 後會定期呼叫,有新訂單時跳出提示並更新鈴鐺標記。
+    """
+    try:
+        since_id = int(request.args.get("since_id", 0))
+    except ValueError:
+        since_id = 0
+
+    rows = db.query(
+        "SELECT id, order_no, customer_name, total, payment_status, created_at FROM orders"
+        " WHERE id > %s ORDER BY id DESC LIMIT 20", (since_id,))
+    for r in rows:
+        r["created_at"] = r["created_at"].strftime("%Y-%m-%d %H:%M")
+
+    return jsonify({
+        "new_orders": rows,
+        "latest_id": db.query_one("SELECT COALESCE(MAX(id), 0) AS v FROM orders")["v"],
+        "pending_orders": db.query_one(
+            "SELECT COUNT(*) AS v FROM orders WHERE status = 'pending'")["v"],
+    })
+
+
 @admin_bp.get("/orders/<int:order_id>")
 @login_required
 def order_detail(order_id):
@@ -175,7 +201,13 @@ def order_detail(order_id):
     if not order:
         return jsonify({"error": "查無訂單"}), 404
     order["created_at"] = order["created_at"].strftime("%Y-%m-%d %H:%M")
+    if order.get("paid_at"):
+        order["paid_at"] = order["paid_at"].strftime("%Y-%m-%d %H:%M")
     order["status_label"] = STATUS_LABELS.get(order["status"], order["status"])
+    order["shipping_label"] = config.SHIPPING_LABELS.get(
+        order["shipping_method"], order["shipping_method"])
+    order["payment_label"] = config.PAYMENT_LABELS.get(
+        order["payment_method"], order["payment_method"])
     order["items"] = db.query(
         "SELECT package_name AS product_name, unit_price, quantity, subtotal"
         " FROM order_items WHERE order_id = %s",

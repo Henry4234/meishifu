@@ -51,12 +51,115 @@ function statusBadge(status) {
   return `<span class="inline-flex items-center px-2 py-1 rounded-full ${s.cls} font-caption text-caption gap-1">${s.label}</span>`;
 }
 
+/* ---------- 新訂單通知 ----------
+   前台結帳成功後訂單直接寫入資料庫，後台各頁定期輪詢 /admin/orders/updates，
+   有新訂單時跳出提示並在頂部鈴鐺顯示未讀數量。 */
+const LAST_ORDER_ID_KEY = "meishifu_admin_last_order_id";
+const UNSEEN_ORDER_KEY = "meishifu_admin_unseen_orders";
+const ORDER_POLL_INTERVAL = 30000;
+
+function getLastOrderId() { return Number(localStorage.getItem(LAST_ORDER_ID_KEY) || 0); }
+function getUnseenOrders() { return Number(localStorage.getItem(UNSEEN_ORDER_KEY) || 0); }
+
+let orderBell = null;
+let orderBellBadge = null;
+
+/* 在後台頁首插入通知鈴鐺 (各頁 HTML 不需另外改動) */
+function ensureOrderBell() {
+  if (orderBell) return orderBell;
+  if (typeof document === "undefined" || !document.querySelector) return null;
+  const header = document.querySelector("header");
+  if (!header) return null;
+
+  const bell = document.createElement("button");
+  bell.id = "order-bell";
+  bell.title = "新訂單通知";
+  bell.className =
+    "relative w-10 h-10 rounded-full flex items-center justify-center " +
+    "text-on-surface-variant hover:bg-surface-container-high transition-colors";
+  const icon = document.createElement("span");
+  icon.className = "material-symbols-outlined";
+  icon.textContent = "notifications";
+  const badge = document.createElement("span");
+  badge.id = "order-bell-badge";
+  badge.className =
+    "hidden absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 bg-error text-on-error " +
+    "rounded-full items-center justify-center font-caption text-[10px] font-bold";
+  bell.appendChild(icon);
+  bell.appendChild(badge);
+  bell.addEventListener("click", () => {
+    clearUnseenOrders();
+    if (!String(window.location.pathname || "").endsWith("orders.html")) {
+      window.location.href = "orders.html";
+    }
+  });
+
+  const group = header.lastElementChild;
+  if (group && group.tagName === "DIV") group.insertBefore(bell, group.firstElementChild);
+  else header.appendChild(bell);
+  orderBell = bell;
+  orderBellBadge = badge;
+  return bell;
+}
+
+function renderOrderBell() {
+  if (!ensureOrderBell()) return;
+  const n = getUnseenOrders();
+  orderBellBadge.textContent = n > 99 ? "99+" : String(n);
+  orderBellBadge.classList.toggle("hidden", n === 0);
+  orderBellBadge.classList.toggle("flex", n > 0);
+}
+
+function clearUnseenOrders() {
+  localStorage.setItem(UNSEEN_ORDER_KEY, "0");
+  renderOrderBell();
+}
+
+async function pollNewOrders() {
+  if (!getToken()) return null;
+  const lastId = getLastOrderId();
+  let data;
+  try { data = await adminFetch("/admin/orders/updates?since_id=" + lastId); }
+  catch { return null; }
+
+  localStorage.setItem(LAST_ORDER_ID_KEY, String(data.latest_id));
+  // 首次載入 (尚未記錄過 id) 只同步基準值，不把既有訂單當成新通知
+  if (lastId && data.new_orders.length) {
+    localStorage.setItem(UNSEEN_ORDER_KEY, String(getUnseenOrders() + data.new_orders.length));
+    const newest = data.new_orders[0];
+    if (typeof window !== "undefined" && window.adminToast) {
+      window.adminToast(
+        data.new_orders.length === 1
+          ? `新訂單 #${newest.order_no}（${newest.customer_name}，${formatPrice(newest.total)}）`
+          : `有 ${data.new_orders.length} 筆新訂單`);
+    }
+    if (typeof window !== "undefined" && typeof window.onNewOrders === "function") {
+      window.onNewOrders(data.new_orders);
+    }
+  }
+  renderOrderBell();
+  return data;
+}
+
+function startOrderWatcher() {
+  if (!getToken()) return null;
+  renderOrderBell();
+  pollNewOrders();
+  return setInterval(pollNewOrders, ORDER_POLL_INTERVAL);
+}
+
+if (typeof document !== "undefined" && document.addEventListener) {
+  document.addEventListener("DOMContentLoaded", startOrderWatcher);
+}
+
 // Node.js test runner 使用；瀏覽器端沒有 module，因此不影響正式管理系統。
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     API_BASE,
     TOKEN_KEY,
     ADMIN_NAME_KEY,
+    LAST_ORDER_ID_KEY,
+    UNSEEN_ORDER_KEY,
     STATUS_STYLE,
     getToken,
     requireLogin,
@@ -65,5 +168,11 @@ if (typeof module !== "undefined" && module.exports) {
     formatPrice,
     fillAdminName,
     statusBadge,
+    getUnseenOrders,
+    clearUnseenOrders,
+    pollNewOrders,
+    ensureOrderBell,
+    renderOrderBell,
+    startOrderWatcher,
   };
 }
