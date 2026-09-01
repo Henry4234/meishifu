@@ -113,19 +113,19 @@ bash deploy/gcp/bootstrap-github-actions.sh
 | `GCP_WORKLOAD_IDENTITY_PROVIDER` | 腳本輸出的完整 provider resource name |
 | `GCP_SERVICE_ACCOUNT` | `github-actions-deployer@meishifu.iam.gserviceaccount.com` |
 
-綠界**物流**(全家店到店 / 7-11 交貨便的電子地圖)另有兩個選填 variables。物流的商店
-代號與金流是兩組不同的帳號,未設定時一律使用綠界 C2C 測試特店,消費者看到的會是
-**測試環境的選店地圖**:
+綠界**物流**(全家店到店 / 7-11 交貨便的電子地圖)環境由部署分支固定決定，不能由
+repository variable 覆寫：
 
-| GitHub variable | 值 | 未設定時 |
-|---|---|---|
-| `ECPAY_LOGISTICS_ENV` | `production` | `stage`(測試地圖) |
-| `ECPAY_LOGISTICS_MERCHANT_ID` | 綠界核發的正式 C2C 物流商店代號 | `2000933`(測試特店) |
+| 部署分支 | `ECPAY_LOGISTICS_ENV` |
+|---|---|
+| `main` | `production` |
+| `dev` 或其他 branch | `stage` |
 
-兩者必須一起設定:`ECPAY_LOGISTICS_ENV=production` 但商店代號仍是 `2000933` 時,
-deploy 會直接失敗,避免用測試特店打正式物流。
+物流的商店代號與金流是兩組不同的帳號。正式部署仍須設定 GitHub repository variable
+`ECPAY_LOGISTICS_MERCHANT_ID` 為綠界核發的正式 C2C 物流商店代號；若未設定，預設值為
+測試特店 `2000933`，而 `main` 的 deploy 會直接失敗，避免正式 endpoint 誤用測試特店。
 
-這兩個值是 resource identifiers，不是密碼。GitHub repository 不需要保存
+`ECPAY_LOGISTICS_MERCHANT_ID` 是 resource identifier，不是密碼。GitHub repository 不需要保存
 `DB_AC`、`DB_PW`、`SECRET_KEY`、`ECPAY_HASH_KEY`、`ECPAY_HASH_IV` 或 GCP JSON key。
 
 ECPay 正式金鑰必須先建立在 GCP Secret Manager；CI 只引用 secret resource name，

@@ -249,9 +249,9 @@ jobs:
         env:
           ECPAY_ENV: production
           ECPAY_MERCHANT_ID: "3511953"
-          # 物流帳號與金流是兩組不同的特店代號,改由 repository variables 提供,
-          # 未設定時維持綠界 C2C 測試特店 (選店地圖會是測試環境)。
-          ECPAY_LOGISTICS_ENV: ${{ vars.ECPAY_LOGISTICS_ENV || 'stage' }}
+          # 正式 main 部署使用綠界正式物流；其他 branch 維持測試環境。
+          # 不允許 repository variable 覆寫，避免正式 Cloud Run 被降回 stage。
+          ECPAY_LOGISTICS_ENV: ${{ github.ref == 'refs/heads/main' && 'production' || 'stage' }}
           ECPAY_LOGISTICS_MERCHANT_ID: ${{ vars.ECPAY_LOGISTICS_MERCHANT_ID || '2000933' }}
           ECPAY_HASH_KEY_SECRET: meishifu-ecpay-hash-key
           ECPAY_HASH_IV_SECRET: meishifu-ecpay-hash-iv
@@ -260,6 +260,11 @@ jobs:
         run: |
           test "${ECPAY_ENV}" = "production" || { echo "ECPAY_ENV must be production" >&2; exit 1; }
           test -n "${ECPAY_MERCHANT_ID}" || { echo "Missing ECPAY_MERCHANT_ID" >&2; exit 1; }
+          expected_logistics_env="stage"
+          if [ "${GITHUB_REF}" = "refs/heads/main" ]; then
+            expected_logistics_env="production"
+          fi
+          test "${ECPAY_LOGISTICS_ENV}" = "${expected_logistics_env}" || { echo "ECPAY_LOGISTICS_ENV must be ${expected_logistics_env} on ${GITHUB_REF}" >&2; exit 1; }
           case "${ECPAY_LOGISTICS_ENV}" in
             stage|production) ;;
             *) echo "ECPAY_LOGISTICS_ENV must be stage or production" >&2; exit 1 ;;
@@ -309,7 +314,7 @@ jobs:
           TAG: ${{ github.sha }}
           ECPAY_ENV: production
           ECPAY_MERCHANT_ID: "3511953"
-          ECPAY_LOGISTICS_ENV: ${{ vars.ECPAY_LOGISTICS_ENV || 'stage' }}
+          ECPAY_LOGISTICS_ENV: ${{ github.ref == 'refs/heads/main' && 'production' || 'stage' }}
           ECPAY_LOGISTICS_MERCHANT_ID: ${{ vars.ECPAY_LOGISTICS_MERCHANT_ID || '2000933' }}
           ECPAY_HASH_KEY_SECRET: meishifu-ecpay-hash-key
           ECPAY_HASH_IV_SECRET: meishifu-ecpay-hash-iv
