@@ -41,8 +41,11 @@ COPY --from=tailscale /usr/local/bin/tailscaled /usr/local/bin/tailscaled
 WORKDIR /app/backend
 COPY backend/ /app/backend/
 
+# sed 去掉 CR:Windows 開發機若以 CRLF 取出腳本,shebang 會變成 `bash\r`,
+# 容器啟動時直接 exit 127 (根本解是 repo 根目錄的 .gitattributes)。
 RUN rm -f /app/backend/Dockerfile \
     && mkdir -p /app/assets/uploads \
+    && sed -i 's/\r$//' /app/backend/start-with-tailscale.sh \
     && chmod 0555 /app/backend/start-with-tailscale.sh \
     && chown -R app:app /app
 

@@ -7,7 +7,7 @@
 
 ```
 website/
-├─ .env                  # 資料庫連線設定 (DB_HOST / DB_port / DB_AC / DB_PW)
+├─ .env                  # 資料庫連線 (DB_*)、綠界金流 (ECPAY_*)、寄信 (SMTP_*) 設定
 ├─ assets/               # LOGO 與商品照片 (uploads/ 為後台上傳的商品圖)
 ├─ frontend/             # 前台 (純靜態 HTML + JS,透過 API 取得資料)
 │  ├─ index.html         # 首頁 (模板 meishifu_1)
@@ -15,7 +15,7 @@ website/
 │  ├─ about.html         # 關於美師傅 (meishifu_3)
 │  ├─ news.html          # 最新消息 (meishifu_4)
 │  ├─ faq.html           # 常見問題 (meishifu_5)
-│  ├─ cart.html          # 購物車/結帳 (meishifu_6,下單走 API)
+│  ├─ cart.html          # 購物車/結帳 (meishifu_6,下單後轉跳綠界付款頁)
 │  ├─ js/site.js         # API 呼叫 + localStorage 購物車
 │  └─ js/animate.js      # 捲動進場動畫、手機漢堡選單、行動版樣式
 ├─ admin/                # 後台管理系統 (桌面版,不做 RWD)
@@ -34,11 +34,14 @@ website/
    ├─ config.py          # 讀取 .env、金流參數
    ├─ db.py              # PyMySQL 連線輔助
    ├─ init_db.py         # 建表 + 種子資料 (可重複執行,含欄位遷移)
+   ├─ ecpay.py           # 綠界付款參數/CheckMacValue、電子地圖參數與門市簽章
+   ├─ mailer.py          # 訂單成立 / 付款成功通知信 (SMTP)
    └─ routes/
       ├─ shop.py         # 商品查詢、建立訂單 (價格以 DB 為準)
       ├─ admin.py        # 登入 (JWT + 角色)、儀表板、訂單管理
       ├─ manage.py       # 材料 / 產品 / 用戶權限 / 財務 API
-      └─ payment.py      # 金流對接預留 (notify webhook + 開發用 mock-pay)
+      ├─ payment.py      # 綠界付款回呼 (notify / result / status)
+      └─ logistics.py    # 綠界電子地圖選店 (map / map-reply)
 ```
 
 ## 啟動方式 (uv)
@@ -55,17 +58,67 @@ uv run python init_db.py
 # 3. 啟動後端 API (http://localhost:5001)
 uv run python app.py
 
+# 3-a. 若 5001 被 Windows 保留 (見下方疑難排解),改用其他埠
+$env:PORT = "5601"; uv run python app.py
+
 # 4. 另開終端,於 website 根目錄啟動前端靜態伺服器
+#    ※ 先確認 docker compose 的 frontend/admin 容器沒在跑,否則 5500 會被佔用
 cd ..
 python -m http.server 5500
 ```
 
 - 前台:http://localhost:5500/frontend/index.html
 - 後台:http://localhost:5500/admin/login.html
+
+> uv 流程與 docker compose **不能同時跑**:compose 已把 5500 / 5501 / 5001 對外發布,
+> 再開 `python -m http.server 5500` 會失敗 (Docker Desktop 以 WSL relay 佔住該埠,
+> 錯誤訊息同樣是 WinError 10013)。要用 uv 流程請先 `docker compose down`。
+>
+> 另外 `frontend/js/site.js` 與 `admin/js/admin.js` 的 `API_BASE` 是同源 `"/api"`,
+> `python -m http.server` 沒有反向代理,前台頁面會拿不到 API 資料;此流程僅適合單獨
+> 測試後端 API,要完整跑前後台請用下面的 Docker 方式。
 - 本機預設管理員帳號:`admin` / `meishifu2026`(角色:超級管理員;上線前請修改)。
   Cloud Run 部署會把隨機初始密碼存入 Secret Manager 的 `meishifu-admin-password`。
 
 > 注意:本機 port 5000 常被 Docker/AirPlay 等服務佔用,故後端使用 5001。
+
+### 疑難排解:Windows 啟動時出現「嘗試存取通訊端被拒絕」
+
+`app.py` 綁定失敗並顯示「嘗試存取通訊端被拒絕，因為存取權限不足」(WinError 10013)
+時,通常**不是**有程式佔用 5001,而是 Hyper-V / WSL / Docker 的 WinNAT 把整段埠號
+保留起來了。先確認:
+
+```powershell
+netsh interface ipv4 show excludedportrange protocol=tcp
+```
+
+若輸出的區間涵蓋 5001 (例如 `4909 - 5008`),二選一:
+
+```powershell
+# 方案 A (免系統管理員):改用不在保留區間內的埠
+$env:PORT = "5601"; uv run python app.py
+
+# 方案 B (系統管理員 PowerShell):永久保留 5001 給本專案,之後開機都不會被搶走
+net stop winnat
+netsh int ipv4 add excludedportrange protocol=tcp startport=5001 numberofports=1
+net start winnat
+```
+
+方案 B 執行時 Docker 網路會短暫中斷,完成後 `uv run python app.py` 即可正常使用
+5001,與 docker compose / `BACKEND_BASE_URL` 的預設值一致。保留區間會在重開機後
+重新配置,所以方案 A 換的埠日後也可能被佔到,長期建議用方案 B。
+
+> `net stop winnat` 會拆掉 Docker 既有的埠轉發,重啟後不會自動補回。若當下有 compose
+> 容器在跑,做完方案 B 請執行 `docker compose up -d`(或 `docker compose restart backend`)
+> 讓 `localhost:5001` 重新對外。容器本身不受影響,前台 nginx 走 Docker 內網代理,
+> 所以 http://localhost:5500 期間仍然正常。
+
+反過來說,若錯誤發生在 `python -m http.server 5500`,先查是不是 compose 的
+frontend/admin 容器已經佔用該埠:
+
+```powershell
+docker ps --format "{{.Names}}`t{{.Ports}}"
+```
 
 ## 啟動方式 (Docker)
 
@@ -112,7 +165,7 @@ docker compose down
 - 公開路由:`https://meishifu.org/`、`https://meishifu.org/management/`、
   `https://meishifu.org/api/*`
 - 商品上傳圖片儲存在私有 bucket:`meishifu-uploads-729707774647`
-- DB/JWT 憑證只存在 Secret Manager，不寫入 image 或 repository。
+- DB/JWT 憑證與 ECPay HashKey/HashIV 只存在 Secret Manager，不寫入 image 或 repository。
 - Backend 透過 Tailscale userspace SOCKS5 與 container-local TCP proxy 連私有 MySQL；
   不再由 production 設定直接連公開 DB IP。詳見
   [Cloud Run 透過 Tailscale 連 MySQL](docs/TAILSCALE-DB.md)。
@@ -160,8 +213,12 @@ Federation 部署三個 Cloud Run services，不使用長效 GCP JSON key。
 | GET | /api/packages/:id | 單一禮盒 |
 | POST | /api/orders | 建立訂單 (items 以 `package_id` 指定,後端重新計價) |
 | GET | /api/orders/:order_no?phone= | 顧客訂單查詢 |
-| POST | /api/payment/notify | 金流商付款結果回呼 (預留) |
-| POST | /api/payment/mock-pay | 開發用模擬付款 (上線前移除) |
+| POST | /api/payment/notify | 綠界付款結果回呼 (ReturnURL,驗章後更新訂單) |
+| POST | /api/payment/result | 綠界付款後瀏覽器導回,驗章後 303 轉回前台結帳結果頁 |
+| GET | /api/payment/status/:order_no | 前台結帳結果頁查詢付款狀態 |
+| GET | /api/logistics/map?method=fami\|unimart | 導向綠界電子地圖選擇取件門市 |
+| POST | /api/logistics/map-reply | 綠界回傳選定門市,簽章後帶回購物車頁 |
+| POST | /api/payment/mock-pay | 開發用模擬付款 (`ECPAY_ENV=production` 時停用) |
 
 ### 後台 (JWT,`Authorization: Bearer <token>`)
 | Method | Path | 說明 |
@@ -169,6 +226,7 @@ Federation 部署三個 Cloud Run services，不使用長效 GCP JSON key。
 | POST | /api/admin/login | 登入,回傳 JWT (含角色) |
 | GET | /api/admin/dashboard | 儀表板統計 |
 | GET/GET/PATCH | /api/admin/orders … /:id/status | 訂單列表/詳情/狀態更新 |
+| GET | /api/admin/orders/updates?since_id= | 新訂單輪詢通知 (後台鈴鐺與 Toast) |
 | GET/POST/PATCH | /api/admin/materials … /:id | 材料查詢與新增/編輯 (含需求預估與狀態) |
 | DELETE | /api/admin/materials/:id | 刪除材料;仍被配方或禮盒包材使用時回 400 並列出使用處 |
 | POST | /api/admin/materials/:id/purchase | 採購入庫 (更新庫存與最新進價) |
@@ -201,7 +259,7 @@ package (禮盒 = 上架販售的商品) ← order_items 指向這裡
 | product_materials | 單品配方 BOM:每 1 單位產品的材料用量 |
 | materials | 材料主檔 (分類/批號/單位/庫存/安全水位/單位成本/效期) |
 | material_logs | 材料異動紀錄 (採購/消耗/盤點調整) |
-| orders / order_items | 訂單主檔與明細 (`package_id` / `package_name` 為下單當下快照) |
+| orders / order_items | 訂單主檔與明細 (`package_id` / `package_name` 為下單當下快照;含 email、超商門市 store_id/store_name/store_address、綠界 trade_no / payment_info / paid_at) |
 | admins | 後台用戶 (密碼 hash、email、角色、啟停用、最後登入) |
 | schema_migrations | 已套用的結構遷移紀錄,讓 init_db.py 可重複執行 |
 
@@ -224,16 +282,73 @@ package (禮盒 = 上架販售的商品) ← order_items 指向這裡
 > 新增禮盒後請記得設定內容物,否則成本會只計包材。
 > 舊資料遷移後,原本自行新增的禮盒內容物為空,需手動補上。
 
-## 金流串接 (預留)
+## 金流串接 (綠界 ECPay)
 
-`backend/routes/payment.py` 已預留完整對接點,正式串接 (綠界/藍新等) 時:
+購物車結帳走綠界「全方位金流 AioCheckOut V5」,流程如下:
 
-1. 在 `.env` 補上 `PAY_PROVIDER`、`PAY_MERCHANT_ID`、`PAY_HASH_KEY`、`PAY_HASH_IV`、`PAY_API_URL`
-2. 在 `build_payment_payload()` 依金流商規格產生加密欄位與付款頁 URL
-3. 在 `/api/payment/notify` 實作簽章驗證後更新訂單付款狀態
-4. 前端 `cart.html` 已支援:`payment.payment_url` 有值時自動導向金流付款頁
+```
+消費者 → cart.html 送出結帳
+      → POST /api/orders     建立訂單 (後端以 DB 價格重算)、寄出訂單成立通知信
+                             並回傳綠界付款參數 + CheckMacValue
+      → 前端以隱藏表單 POST 到綠界付款頁,消費者在綠界完成付款
+      → 綠界 POST /api/payment/notify   (server-to-server,ReturnURL) 驗章後標記已付款
+      → 綠界 POST /api/payment/result   (瀏覽器,OrderResultURL) 驗章後 303 導回
+      → cart.html?order_no=…&result=paid 以 /api/payment/status/:order_no 顯示付款結果
+```
 
-運費規則:宅配滿 NT$2,000 免運,未滿收 NT$120;門市自取免運。
+- **驗章**:`backend/ecpay.py` 依綠界規格 (參數 A-Z 排序 → .NET UrlEncode → 小寫 → SHA256 → 大寫)
+  產生與驗證 `CheckMacValue`;`notify` / `result` 都會驗章並核對金額,任一不符都不會標記付款。
+- **設定**:`.env` 未填 `ECPAY_*` 時使用綠界官方測試商店 (`2000132`),可直接用綠界提供的
+  測試卡號跑完整流程。正式上線改填自家商店代號並設定 `ECPAY_ENV=production`。
+- **回呼網址**:`ReturnURL` 必須是公開可連的網址,本機開發收不到;本機測試時付款狀態
+  由瀏覽器導回的 `/api/payment/result` 更新 (同樣經過驗章)。正式環境請設定
+  `BACKEND_BASE_URL` / `FRONTEND_BASE_URL` (或直接指定 `PAY_NOTIFY_URL` / `PAY_RESULT_URL` /
+  `PAY_RETURN_URL`)。
+- **ATM 轉帳**:綠界取號成功會先回 `RtnCode=2`,訂單維持未付款並把虛擬帳號存入
+  `orders.payment_info`;實際入帳後才會再送一次 `RtnCode=1` 標記已付款。
+- **後台通知**:訂單直接寫入資料庫,後台各頁透過 `admin.js` 每 30 秒輪詢
+  `/api/admin/orders/updates`,有新訂單時跳出 Toast 並在頁首鈴鐺顯示未讀數量。
+
+配送與運費 (滿 NT$2,000 免運):
+
+| 配送方式 | 代碼 | 綠界物流子類型 | 運費 | 收件欄位 |
+|---|---|---|---|---|
+| 宅配到府 | `delivery` | — | NT$120 | 收件地址 |
+| 全家店到店 | `fami` | `FAMIC2C` | NT$70 | 由電子地圖選店 |
+| 7-11 交貨便 | `unimart` | `UNIMARTC2C` | NT$70 | 由電子地圖選店 |
+
+## 店到店選店 (綠界電子地圖)
+
+選擇全家店到店或 7-11 交貨便時,門市不再手動輸入,而是開新視窗進綠界電子地圖挑選:
+
+```
+購物車按「選擇門市」
+  → 開新視窗到 GET /api/logistics/map?method=fami&device=0
+  → 後端回傳一頁自動送出的表單,把消費者帶到綠界電子地圖
+  → 消費者選好門市,綠界 POST 到 /api/logistics/map-reply
+  → 後端把門市資料簽章後 postMessage 給購物車頁並關閉視窗
+  → 送出訂單時附上門市與簽章,後端驗證後才寫入 orders
+```
+
+- **物流商店代號與金流不同**:全家店到店 / 7-11 交貨便屬於 C2C,`.env` 以
+  `ECPAY_LOGISTICS_MERCHANT_ID` 設定 (預設為綠界 C2C 測試特店 `2000933`,
+  金流測試特店則是 `2000132`)。
+- **電子地圖不需要 CheckMacValue**;為避免前端在送出訂單時竄改門市,
+  `/api/logistics/map-reply` 會用 `SECRET_KEY` 對
+  `store_id|store_name|store_address|sub_type` 做 HMAC-SHA256 簽章,
+  建立訂單時 `ecpay.verify_store()` 會再驗一次,簽章不符或門市與配送方式不符都會回 400。
+- 選店視窗以 `postMessage` 回傳結果,因此 `ECPAY_MAP_REPLY_URL` 必須與前台**同源**
+  (預設取 `FRONTEND_BASE_URL` 的來源 + `/api/logistics/map-reply`);購物車頁只接受
+  同源且 `source === "ecpay-map"` 的訊息。
+- 目前只做到「選店 + 記錄門市」。若要進一步由系統建立物流訂單 / 列印托運單,
+  需再串綠界物流的建立訂單 API,屆時還要在 `.env` 補上物流專用的 HashKey / HashIV。
+
+## 訂單通知信
+
+`backend/mailer.py` 在訂單成立與付款成功時各寄出一封 HTML 通知信到顧客填寫的 Email
+(結帳表單的 Email 為必填,並存入 `orders.email`)。寄信在背景執行緒進行,SMTP 失敗
+只記錄 log,不會讓下單 API 失敗。`.env` 未設定 `SMTP_HOST` 時不會真的寄信,只把信件
+內容印在後端 log,方便本機開發確認。
 
 ## 介面動畫
 

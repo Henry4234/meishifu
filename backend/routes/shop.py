@@ -4,6 +4,7 @@
 價格一律以資料庫為準重新計算,不信任前端傳來的金額。
 """
 import random
+import re
 import string
 from datetime import datetime
 
@@ -11,7 +12,8 @@ from flask import Blueprint, jsonify, request
 
 import config
 import db
-from routes.payment import build_payment_payload
+import ecpay
+import mailer
 
 shop_bp = Blueprint("shop", __name__)
 
@@ -108,8 +110,26 @@ def get_package(pkg_id):
 
 
 def _gen_order_no():
+    """MS + yyyymmddHHMMSS + 4 碼亂數 = 20 碼,剛好符合綠界 MerchantTradeNo 上限。"""
     suffix = "".join(random.choices(string.digits, k=4))
     return "MS" + datetime.now().strftime("%Y%m%d%H%M%S") + suffix
+
+
+# 前台可選的配送方式 (pickup 僅保留給舊訂單,不再開放下單)
+SHIPPING_METHODS = ("delivery", "fami", "unimart")
+CVS_METHODS = ("fami", "unimart")
+PAYMENT_METHODS = ("credit", "transfer")
+EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+def _shipping_fee(shipping_method: str, subtotal: int) -> int:
+    if subtotal >= config.FREE_SHIPPING_THRESHOLD:
+        return 0
+    if shipping_method == "delivery":
+        return config.SHIPPING_FEE
+    if shipping_method in CVS_METHODS:
+        return config.CVS_SHIPPING_FEE
+    return 0
 
 
 @shop_bp.post("/orders")
@@ -121,16 +141,38 @@ def create_order():
     # --- 基本驗證 ---
     name = (customer.get("name") or "").strip()
     phone = (customer.get("phone") or "").strip()
+    email = (customer.get("email") or "").strip()
     address = (customer.get("address") or "").strip()
     shipping_method = data.get("shipping_method", "delivery")
     payment_method = data.get("payment_method", "credit")
 
     if not name or not phone:
         return jsonify({"error": "請填寫姓名與電話"}), 400
+    if not EMAIL_RE.match(email):
+        return jsonify({"error": "請填寫正確的 Email,訂單成立與付款通知會寄到此信箱"}), 400
+    if shipping_method not in SHIPPING_METHODS or payment_method not in PAYMENT_METHODS:
+        return jsonify({"error": "配送或付款方式不正確"}), 400
     if shipping_method == "delivery" and not address:
         return jsonify({"error": "宅配請填寫收件地址"}), 400
-    if shipping_method not in ("delivery", "pickup") or payment_method not in ("credit", "transfer"):
-        return jsonify({"error": "配送或付款方式不正確"}), 400
+
+    # 店到店的門市必須來自綠界電子地圖,並帶回選店時產生的簽章
+    store_id = store_name = store_address = ""
+    if shipping_method in CVS_METHODS:
+        store = customer.get("store") or {}
+        store_id = (store.get("store_id") or "").strip()[:20]
+        store_name = (store.get("store_name") or "").strip()[:60]
+        store_address = (store.get("store_address") or "").strip()[:120]
+        signed = {
+            "store_id": store_id, "store_name": store_name,
+            "store_address": store_address, "sub_type": store.get("sub_type", ""),
+        }
+        if not store_id or not store_name:
+            return jsonify({"error": "請點選「選擇門市」挑選取件門市"}), 400
+        if store.get("sub_type") != ecpay.LOGISTICS_SUBTYPE[shipping_method]:
+            return jsonify({"error": "取件門市與配送方式不符,請重新選擇門市"}), 400
+        if not ecpay.verify_store(signed, store.get("signature", "")):
+            return jsonify({"error": "門市資料驗證失敗,請重新選擇門市"}), 400
+
     if not items:
         return jsonify({"error": "購物車是空的"}), 400
 
@@ -153,9 +195,7 @@ def create_order():
         subtotal += line_total
         order_items.append((pkg["id"], pkg["name"], pkg["price"], qty, line_total))
 
-    shipping_fee = 0
-    if shipping_method == "delivery" and subtotal < config.FREE_SHIPPING_THRESHOLD:
-        shipping_fee = config.SHIPPING_FEE
+    shipping_fee = _shipping_fee(shipping_method, subtotal)
     total = subtotal + shipping_fee
 
     # --- 寫入訂單 (單一交易) ---
@@ -165,12 +205,13 @@ def create_order():
         with conn.cursor() as cur:
             cur.execute(
                 """INSERT INTO orders
-                   (order_no, customer_name, phone, address, shipping_method,
-                    payment_method, subtotal, shipping_fee, total, note)
-                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
-                (order_no, name, phone, address, shipping_method,
-                 payment_method, subtotal, shipping_fee, total,
-                 (data.get("note") or "")[:255]),
+                   (order_no, customer_name, phone, email, address, store_id, store_name,
+                    store_address, shipping_method, payment_method, subtotal, shipping_fee,
+                    total, note)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                (order_no, name, phone, email, address, store_id, store_name,
+                 store_address, shipping_method, payment_method, subtotal, shipping_fee,
+                 total, (data.get("note") or "")[:255]),
             )
             order_id = cur.lastrowid
             cur.executemany(
@@ -186,15 +227,25 @@ def create_order():
     finally:
         conn.close()
 
-    # --- 金流對接 (預留) ---
-    payment = build_payment_payload(order_no, total, payment_method)
+    order = {
+        "order_no": order_no, "customer_name": name, "phone": phone, "email": email,
+        "address": address, "store_id": store_id, "store_name": store_name,
+        "store_address": store_address, "shipping_method": shipping_method,
+        "payment_method": payment_method, "subtotal": subtotal,
+        "shipping_fee": shipping_fee, "total": total,
+    }
+    # --- 訂單成立通知信 (背景寄送,SMTP 失敗不影響下單) ---
+    mailer.send_order_created(order, order_items)
+
+    # --- 綠界付款表單:前台收到後自動 POST 到綠界付款頁 ---
+    checkout = ecpay.build_checkout(order_no, total, payment_method, order_items, shipping_fee)
 
     return jsonify({
         "order_no": order_no,
         "subtotal": subtotal,
         "shipping_fee": shipping_fee,
         "total": total,
-        "payment": payment,
+        "payment": checkout,
     }), 201
 
 

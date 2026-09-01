@@ -96,11 +96,17 @@ def test_order_management(client, monkeypatch, auth_headers):
     order = {
         "id": 7,
         "status": "paid",
+        "shipping_method": "fami",
+        "payment_method": "transfer",
         "created_at": datetime(2026, 8, 22, 9, 0),
+        "paid_at": datetime(2026, 8, 22, 9, 30),
     }
     monkeypatch.setattr(db, "query_one", lambda *_args, **_kwargs: order.copy())
-    detail = client.get("/api/admin/orders/7", headers=auth_headers())
-    assert detail.get_json()["status_label"] == "已付款"
+    detail = client.get("/api/admin/orders/7", headers=auth_headers()).get_json()
+    assert detail["status_label"] == "已付款"
+    assert detail["shipping_label"] == "全家店到店"
+    assert detail["payment_label"] == "銀行 ATM 轉帳"
+    assert detail["paid_at"] == "2026-08-22 09:30"
 
     monkeypatch.setattr(db, "query_one", lambda *_args, **_kwargs: None)
     assert client.get("/api/admin/orders/99", headers=auth_headers()).status_code == 404
@@ -112,3 +118,28 @@ def test_order_management(client, monkeypatch, auth_headers):
     updated = client.patch("/api/admin/orders/7/status", json={"status": "paid"}, headers=auth_headers())
     assert updated.status_code == 200
     assert len(executed) == 2
+
+
+def test_order_updates_notifies_admin(client, monkeypatch, auth_headers):
+    """後台輪詢新訂單:回傳 since_id 之後成立的訂單與待處理數量。"""
+    monkeypatch.setattr(db, "query_one", lambda sql, _args=None: {"v": 9} if "MAX" in sql else {"v": 2})
+    monkeypatch.setattr(
+        db,
+        "query",
+        lambda *_args, **_kwargs: [{
+            "id": 9,
+            "order_no": "MS20260901120000001",
+            "customer_name": "王小明",
+            "total": 1120,
+            "payment_status": "paid",
+            "created_at": datetime(2026, 9, 1, 12, 0),
+        }],
+    )
+    body = client.get("/api/admin/orders/updates?since_id=8", headers=auth_headers()).get_json()
+    assert body["latest_id"] == 9
+    assert body["pending_orders"] == 2
+    assert body["new_orders"][0]["created_at"] == "2026-09-01 12:00"
+
+    # since_id 非數字時視為 0,不應噴 500
+    assert client.get("/api/admin/orders/updates?since_id=x", headers=auth_headers()).status_code == 200
+    assert client.get("/api/admin/orders/updates").status_code == 401

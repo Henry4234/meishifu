@@ -35,23 +35,49 @@
 <input class="w-full bg-surface-container-low text-on-surface font-body-md text-body-md px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary transition-shadow ring-1 ring-tertiary-fixed" id="phone" placeholder="0912-345-678" required type="tel"/>
 </div>
 <div class="flex flex-col gap-1">
+<label class="font-label-md text-label-md text-on-surface" for="email">Email</label>
+<input class="w-full bg-surface-container-low text-on-surface font-body-md text-body-md px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary transition-shadow ring-1 ring-tertiary-fixed" id="email" placeholder="you@example.com" required type="email"/>
+<p class="font-caption text-caption text-on-surface-variant">訂單成立與付款結果通知會寄送至此信箱。</p>
+</div>
+<div class="flex flex-col gap-1" id="address-field">
 <label class="font-label-md text-label-md text-on-surface" for="address">收件地址</label>
 <input class="w-full bg-surface-container-low text-on-surface font-body-md text-body-md px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary transition-shadow ring-1 ring-tertiary-fixed" id="address" placeholder="台北市信義區..." type="text"/>
+</div>
+<div class="hidden flex-col gap-2" id="store-field">
+<label class="font-label-md text-label-md text-on-surface">取件門市</label>
+<div class="flex flex-col gap-1 bg-surface-container-low rounded-lg px-4 py-3 ring-1 ring-tertiary-fixed" id="store-empty">
+<p class="font-body-md text-body-md text-on-surface-variant">尚未選擇門市</p>
+</div>
+<div class="hidden flex-col gap-1 bg-surface-container-low rounded-lg px-4 py-3 ring-1 ring-primary" id="store-picked">
+<p class="font-label-md text-label-md text-on-surface" id="store-name"></p>
+<p class="font-caption text-caption text-on-surface-variant" id="store-address"></p>
+<p class="font-caption text-caption text-on-surface-variant" id="store-id"></p>
+</div>
+<button class="w-full py-3 bg-secondary-container text-on-secondary-container font-label-md text-label-md rounded-lg hover:shadow-md transition-all flex items-center justify-center gap-2" id="pick-store-btn" type="button">
+<span class="material-symbols-outlined text-[20px]">location_on</span>
+<span id="pick-store-label">選擇門市</span>
+</button>
+<p class="font-caption text-caption text-on-surface-variant" id="store-hint">將開啟綠界門市地圖,選好門市後會自動帶回。</p>
 </div>
 </div>
 <div class="h-px w-full bg-surface-variant my-2"></div>
 <div class="flex flex-col gap-4">
 <h3 class="font-label-md text-label-md text-primary uppercase tracking-wider">配送方式</h3>
-<div class="grid grid-cols-2 gap-4">
-<label class="option-card flex flex-col items-center justify-center gap-2 p-4 bg-surface-container-low rounded-lg cursor-pointer transition-all hover:bg-surface-container ring-2 ring-primary">
+<div class="grid grid-cols-3 gap-3">
+<label class="option-card flex flex-col items-center justify-center gap-2 p-3 bg-surface-container-low rounded-lg cursor-pointer transition-all hover:bg-surface-container ring-2 ring-primary text-center">
 <input checked class="sr-only" name="shipping" type="radio" value="delivery"/>
-<span class="material-symbols-outlined text-primary text-[32px]">local_shipping</span>
-<span class="font-label-md text-label-md text-on-surface">宅配到府</span>
+<span class="material-symbols-outlined text-primary text-[28px]">local_shipping</span>
+<span class="font-label-md text-label-md text-on-surface leading-tight">宅配到府</span>
 </label>
-<label class="option-card flex flex-col items-center justify-center gap-2 p-4 bg-surface-container-low rounded-lg cursor-pointer transition-all hover:bg-surface-container ring-1 ring-tertiary-fixed">
-<input class="sr-only" name="shipping" type="radio" value="pickup"/>
-<span class="material-symbols-outlined text-tertiary text-[32px]">storefront</span>
-<span class="font-label-md text-label-md text-on-surface">門市自取</span>
+<label class="option-card flex flex-col items-center justify-center gap-2 p-3 bg-surface-container-low rounded-lg cursor-pointer transition-all hover:bg-surface-container ring-1 ring-tertiary-fixed text-center">
+<input class="sr-only" name="shipping" type="radio" value="fami"/>
+<span class="material-symbols-outlined text-tertiary text-[28px]">storefront</span>
+<span class="font-label-md text-label-md text-on-surface leading-tight">全家<br/>店到店</span>
+</label>
+<label class="option-card flex flex-col items-center justify-center gap-2 p-3 bg-surface-container-low rounded-lg cursor-pointer transition-all hover:bg-surface-container ring-1 ring-tertiary-fixed text-center">
+<input class="sr-only" name="shipping" type="radio" value="unimart"/>
+<span class="material-symbols-outlined text-tertiary text-[28px]">local_convenience_store</span>
+<span class="font-label-md text-label-md text-on-surface leading-tight">7-11<br/>交貨便</span>
 </label>
 </div>
 </div>
@@ -67,9 +93,10 @@
 <label class="option-card flex flex-col items-center justify-center gap-2 p-4 bg-surface-container-low rounded-lg cursor-pointer transition-all hover:bg-surface-container ring-1 ring-tertiary-fixed">
 <input class="sr-only" name="payment" type="radio" value="transfer"/>
 <span class="material-symbols-outlined text-tertiary text-[32px]">account_balance</span>
-<span class="font-label-md text-label-md text-on-surface">銀行轉帳</span>
+<span class="font-label-md text-label-md text-on-surface">銀行 ATM</span>
 </label>
 </div>
+<p class="font-caption text-caption text-on-surface-variant">將由綠界科技 ECPay 提供安全結帳頁面,本站不會保存您的卡號。</p>
 </div>
 <div class="h-px w-full bg-surface-variant my-2"></div>
 <div class="flex flex-col gap-3">
@@ -95,22 +122,33 @@
 </div>
 </div>
 </div>
-<!-- 訂單完成畫面 -->
-<div class="hidden max-w-2xl mx-auto py-xl px-margin-mobile text-center flex-col items-center gap-md" id="success-view">
+<!-- 導向綠界付款頁的過場畫面 -->
+<div class="hidden max-w-2xl mx-auto py-xl px-margin-mobile text-center flex-col items-center gap-md" id="redirect-view">
 <div class="w-20 h-20 bg-primary-fixed rounded-full flex items-center justify-center mx-auto mb-md">
-<span class="material-symbols-outlined text-on-primary-fixed text-4xl">check_circle</span>
+<span class="material-symbols-outlined text-on-primary-fixed text-4xl animate-spin">progress_activity</span>
 </div>
-<h1 class="font-display text-display text-on-surface mb-sm">訂單已成立!</h1>
-<p class="font-body-lg text-on-surface-variant mb-md">感謝您的訂購,我們將盡快為您安排出貨。</p>
-<div class="bg-surface-container-lowest rounded-2xl shadow-md p-lg text-left space-y-sm mx-auto max-w-md">
+<h1 class="font-headline-lg text-headline-lg text-on-surface mb-sm">訂單已建立,正在前往安全付款頁</h1>
+<p class="font-body-lg text-on-surface-variant">訂單編號 <span class="font-label-md text-primary" id="redirect-order-no"></span></p>
+<p class="font-body-md text-on-surface-variant">頁面將自動轉跳至綠界科技 ECPay,請勿關閉視窗。</p>
+</div>
+<!-- 付款結果畫面 (由綠界導回時顯示) -->
+<div class="hidden max-w-2xl mx-auto py-xl px-margin-mobile text-center flex-col items-center gap-md" id="result-view">
+<div class="w-20 h-20 bg-primary-fixed rounded-full flex items-center justify-center mx-auto mb-md" id="result-icon-box">
+<span class="material-symbols-outlined text-on-primary-fixed text-4xl" id="result-icon">check_circle</span>
+</div>
+<h1 class="font-display text-display text-on-surface mb-sm" id="result-title">付款成功!</h1>
+<p class="font-body-lg text-on-surface-variant mb-md" id="result-message">感謝您的訂購,我們將盡快為您安排出貨。</p>
+<div class="bg-surface-container-lowest rounded-2xl shadow-md p-lg text-left space-y-sm mx-auto max-w-md w-full">
 <div class="flex justify-between"><span class="text-on-surface-variant">訂單編號</span><span class="font-label-md text-primary" id="result-order-no"></span></div>
+<div class="flex justify-between"><span class="text-on-surface-variant">付款方式</span><span id="result-payment"></span></div>
+<div class="flex justify-between"><span class="text-on-surface-variant">配送方式</span><span id="result-shipping-method"></span></div>
 <div class="flex justify-between"><span class="text-on-surface-variant">小計</span><span id="result-subtotal"></span></div>
 <div class="flex justify-between"><span class="text-on-surface-variant">運費</span><span id="result-shipping"></span></div>
 <div class="flex justify-between border-t border-surface-variant pt-sm"><span class="font-headline-md">總計</span><span class="font-headline-md text-primary" id="result-total"></span></div>
 </div>
+<p class="hidden font-body-md text-on-surface bg-surface-container rounded-lg px-md py-sm mt-md max-w-md" id="payment-info"></p>
 <p class="font-caption text-on-surface-variant mt-md" id="payment-note"></p>
 <div class="flex gap-md justify-center mt-md">
-<button class="hidden px-8 py-3 bg-secondary text-on-secondary rounded-full font-label-md hover:shadow-lg transition-all" id="mock-pay-btn">模擬完成付款 (開發用)</button>
 <a class="px-8 py-3 bg-primary text-on-primary rounded-full font-label-md hover:shadow-lg transition-all" href="products.html">繼續購物</a>
 </div>
 </div>
@@ -166,13 +204,83 @@ function renderCart() {
   updateTotals();
 }
 
+/* 運費規則須與後端 config.py 一致 (後端會以資料庫價格重新計算,此處僅供顯示) */
+const FREE_SHIPPING_THRESHOLD = 2000;
+const SHIPPING_FEES = { delivery: 120, fami: 70, unimart: 70 };
+const CVS_METHODS = ["fami", "unimart"];
+const STORE_HINTS = {
+  fami: "將開啟綠界門市地圖,選擇取件的全家門市後會自動帶回。",
+  unimart: "將開啟綠界門市地圖,選擇取件的 7-11 門市後會自動帶回。",
+};
+
 function shippingMethod() { return document.querySelector('input[name="shipping"]:checked').value; }
 function paymentMethod() { return document.querySelector('input[name="payment"]:checked').value; }
+
+/* 由綠界電子地圖選回的門市 (含簽章,後端會再驗一次) */
+let selectedStore = null;
+
+function renderStore() {
+  const picked = document.getElementById("store-picked");
+  const empty = document.getElementById("store-empty");
+  picked.classList.toggle("hidden", !selectedStore);
+  picked.classList.toggle("flex", !!selectedStore);
+  empty.classList.toggle("hidden", !!selectedStore);
+  empty.classList.toggle("flex", !selectedStore);
+  document.getElementById("pick-store-label").textContent = selectedStore ? "重新選擇門市" : "選擇門市";
+  if (selectedStore) {
+    document.getElementById("store-name").textContent = selectedStore.store_name;
+    document.getElementById("store-address").textContent = selectedStore.store_address || "";
+    document.getElementById("store-id").textContent = "店號 " + selectedStore.store_id;
+  }
+}
+
+/* 宅配填地址、店到店選門市 */
+function syncShippingFields() {
+  const method = shippingMethod();
+  const isCvs = CVS_METHODS.includes(method);
+  const addressField = document.getElementById("address-field");
+  const storeField = document.getElementById("store-field");
+  addressField.classList.toggle("hidden", isCvs);
+  addressField.classList.toggle("flex", !isCvs);
+  storeField.classList.toggle("hidden", !isCvs);
+  storeField.classList.toggle("flex", isCvs);
+  if (isCvs) document.getElementById("store-hint").textContent = STORE_HINTS[method];
+  // 換過配送方式後,先前選的門市屬於另一家超商,必須重選
+  if (!isCvs || (selectedStore && selectedStore.method !== method)) selectedStore = null;
+  renderStore();
+}
+
+/* 開新視窗進綠界電子地圖;選好門市後由 /api/logistics/map-reply 以 postMessage 帶回 */
+document.getElementById("pick-store-btn").addEventListener("click", () => {
+  const method = shippingMethod();
+  if (!CVS_METHODS.includes(method)) return;
+  const device = window.innerWidth < 768 ? 1 : 0;
+  const url = `${API_BASE}/logistics/map?method=${method}&device=${device}`;
+  const win = window.open(url, "ecpayMap", "width=980,height=760,menubar=no,toolbar=no");
+  if (!win) showToast("瀏覽器阻擋了門市地圖視窗,請允許彈出視窗後再試一次");
+});
+
+window.addEventListener("message", (event) => {
+  // 選店視窗與購物車頁同源 (皆走 /api),非同源的訊息一律忽略
+  if (event.origin !== window.location.origin) return;
+  const data = event.data;
+  if (!data || data.source !== "ecpay-map" || !data.store || !data.store.store_id) return;
+  selectedStore = data.store;
+  if (selectedStore.method && selectedStore.method !== shippingMethod()) {
+    selectedStore = null;
+    showToast("選到的門市與目前的配送方式不符,請重新選擇");
+  } else {
+    showToast(`已選擇門市:${selectedStore.store_name}`);
+  }
+  renderStore();
+});
 
 function updateTotals() {
   const cart = getCart();
   const subtotal = cart.reduce((s, i) => s + i.price * i.quantity, 0);
-  const fee = shippingMethod() === "delivery" && subtotal > 0 && subtotal < 2000 ? 120 : 0;
+  const fee = subtotal > 0 && subtotal < FREE_SHIPPING_THRESHOLD
+    ? (SHIPPING_FEES[shippingMethod()] || 0)
+    : 0;
   document.getElementById("subtotal").textContent = formatPrice(subtotal);
   document.getElementById("shipping-fee").textContent = formatPrice(fee);
   document.getElementById("total").textContent = formatPrice(subtotal + fee);
@@ -191,9 +299,27 @@ document.querySelectorAll('input[type="radio"]').forEach((radio) => {
       icon.classList.toggle("text-primary", r.checked);
       icon.classList.toggle("text-tertiary", !r.checked);
     });
+    if (radio.name === "shipping") syncShippingFields();
     updateTotals();
   });
 });
+
+/* 以隱藏表單 POST 到綠界,瀏覽器即進入 ECPay 付款頁 */
+function postToGateway(payment) {
+  const form = document.createElement("form");
+  form.method = "POST";
+  form.action = payment.action;
+  form.acceptCharset = "utf-8";
+  Object.entries(payment.params).forEach(([name, value]) => {
+    const input = document.createElement("input");
+    input.type = "hidden";
+    input.name = name;
+    input.value = value;
+    form.appendChild(input);
+  });
+  document.body.appendChild(form);
+  form.submit();
+}
 
 document.getElementById("checkout-form").addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -205,15 +331,22 @@ document.getElementById("checkout-form").addEventListener("submit", async (e) =>
     errEl.classList.remove("hidden");
     return;
   }
+  if (CVS_METHODS.includes(shippingMethod()) && !selectedStore) {
+    errEl.textContent = "請點選「選擇門市」挑選取件門市。";
+    errEl.classList.remove("hidden");
+    return;
+  }
   const btn = document.getElementById("submit-btn");
   btn.disabled = true;
   btn.classList.add("opacity-75");
   try {
     const result = await apiPost("/orders", {
       customer: {
-        name: document.getElementById("fullName").value,
-        phone: document.getElementById("phone").value,
-        address: document.getElementById("address").value,
+        name: document.getElementById("fullName").value.trim(),
+        phone: document.getElementById("phone").value.trim(),
+        email: document.getElementById("email").value.trim(),
+        address: document.getElementById("address").value.trim(),
+        store: selectedStore,
       },
       shipping_method: shippingMethod(),
       payment_method: paymentMethod(),
@@ -221,38 +354,82 @@ document.getElementById("checkout-form").addEventListener("submit", async (e) =>
     });
     clearCart();
     document.getElementById("cart-view").classList.add("hidden");
-    const sv = document.getElementById("success-view");
-    sv.classList.remove("hidden");
-    sv.classList.add("flex");
-    document.getElementById("result-order-no").textContent = result.order_no;
-    document.getElementById("result-subtotal").textContent = formatPrice(result.subtotal);
-    document.getElementById("result-shipping").textContent = formatPrice(result.shipping_fee);
-    document.getElementById("result-total").textContent = formatPrice(result.total);
-    const note = document.getElementById("payment-note");
-    if (result.payment && result.payment.mock) {
-      note.textContent = "※ 金流尚未正式串接,目前為模擬模式。正式環境將於此導向金流公司付款頁面。";
-      const mockBtn = document.getElementById("mock-pay-btn");
-      mockBtn.classList.remove("hidden");
-      mockBtn.addEventListener("click", async () => {
-        try {
-          await apiPost("/payment/mock-pay", { order_no: result.order_no });
-          showToast("付款完成!訂單狀態已更新為已付款");
-          mockBtn.classList.add("hidden");
-        } catch (err) { showToast("模擬付款失敗:" + err.message); }
-      }, { once: true });
-    } else if (result.payment && result.payment.payment_url) {
-      note.textContent = "即將導向金流付款頁面...";
-      window.location.href = result.payment.payment_url;
-    }
+    const rv = document.getElementById("redirect-view");
+    rv.classList.remove("hidden");
+    rv.classList.add("flex");
+    document.getElementById("redirect-order-no").textContent = result.order_no;
     window.scrollTo({ top: 0, behavior: "smooth" });
+    postToGateway(result.payment);
   } catch (err) {
     errEl.textContent = err.message;
     errEl.classList.remove("hidden");
-  } finally {
     btn.disabled = false;
     btn.classList.remove("opacity-75");
   }
 });
 
-renderCart();
+/* ---------- 由綠界導回:顯示付款結果 ---------- */
+const RESULT_STATES = {
+  paid: {
+    icon: "check_circle", title: "付款成功!",
+    message: "感謝您的訂購,我們已收到款項,將盡快為您安排出貨。訂單明細也已寄至您的信箱。",
+  },
+  pending: {
+    icon: "schedule", title: "訂單已成立,等待付款",
+    message: "請依綠界提供的繳費資訊於期限內完成轉帳,款項入帳後我們會立即為您安排出貨。",
+  },
+  failed: {
+    icon: "error", title: "付款未完成",
+    message: "這筆訂單尚未付款成功。若已扣款請保留交易明細並與我們聯繫。",
+  },
+};
+
+async function showPaymentResult(orderNo, hint) {
+  document.getElementById("cart-view").classList.add("hidden");
+  const view = document.getElementById("result-view");
+  view.classList.remove("hidden");
+  view.classList.add("flex");
+  document.getElementById("result-order-no").textContent = orderNo;
+
+  let order = null;
+  // 綠界 server-to-server 通知可能比瀏覽器導回稍慢,未付款時再查詢幾次
+  for (let attempt = 0; attempt < 4; attempt++) {
+    try { order = await apiGet("/payment/status/" + encodeURIComponent(orderNo)); }
+    catch { break; }
+    if (order.payment_status === "paid" || hint !== "paid") break;
+    await new Promise((r) => setTimeout(r, 1500));
+  }
+
+  if (!order) {
+    document.getElementById("result-title").textContent = "查無此訂單";
+    document.getElementById("result-message").textContent = "請確認訂單編號,或與我們聯繫。";
+    return;
+  }
+
+  const state = order.payment_status === "paid" ? RESULT_STATES.paid
+    : (hint === "pending" || order.payment_method === "transfer") ? RESULT_STATES.pending
+      : RESULT_STATES.failed;
+  document.getElementById("result-icon").textContent = state.icon;
+  document.getElementById("result-title").textContent = state.title;
+  document.getElementById("result-message").textContent = state.message;
+  document.getElementById("result-payment").textContent = order.payment_label;
+  document.getElementById("result-shipping-method").textContent = order.shipping_label;
+  document.getElementById("result-subtotal").textContent = formatPrice(order.subtotal);
+  document.getElementById("result-shipping").textContent = formatPrice(order.shipping_fee);
+  document.getElementById("result-total").textContent = formatPrice(order.total);
+  if (order.payment_info) {
+    const info = document.getElementById("payment-info");
+    info.textContent = order.payment_info;
+    info.classList.remove("hidden");
+  }
+  document.getElementById("payment-note").textContent = "本次交易由綠界科技 ECPay 提供安全付款服務。";
+}
+
+const returnedOrderNo = new URLSearchParams(window.location.search).get("order_no");
+if (returnedOrderNo) {
+  showPaymentResult(returnedOrderNo, new URLSearchParams(window.location.search).get("result"));
+} else {
+  syncShippingFields();
+  renderCart();
+}
 </script></body></html>

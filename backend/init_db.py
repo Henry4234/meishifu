@@ -75,8 +75,12 @@ SCHEMA = [
         order_no VARCHAR(32) NOT NULL UNIQUE,
         customer_name VARCHAR(100) NOT NULL,
         phone VARCHAR(30) NOT NULL,
+        email VARCHAR(120) NOT NULL DEFAULT '',
         address VARCHAR(255) DEFAULT '',
-        shipping_method ENUM('delivery','pickup') DEFAULT 'delivery',
+        store_id VARCHAR(20) DEFAULT '',
+        store_name VARCHAR(60) DEFAULT '',
+        store_address VARCHAR(120) DEFAULT '',
+        shipping_method ENUM('delivery','fami','unimart','pickup') DEFAULT 'delivery',
         payment_method ENUM('credit','transfer') DEFAULT 'credit',
         payment_status ENUM('unpaid','paid','refunded') DEFAULT 'unpaid',
         status ENUM('pending','paid','shipped','completed','cancelled') DEFAULT 'pending',
@@ -84,6 +88,9 @@ SCHEMA = [
         shipping_fee INT NOT NULL DEFAULT 0,
         total INT NOT NULL DEFAULT 0,
         note VARCHAR(255) DEFAULT '',
+        trade_no VARCHAR(32) DEFAULT '',
+        payment_info VARCHAR(255) DEFAULT '',
+        paid_at DATETIME DEFAULT NULL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     """,
@@ -153,6 +160,17 @@ SCHEMA = [
         applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     """,
+]
+
+# 綠界金流串接後 orders 需要的欄位 (既有資料庫以 ALTER TABLE 補上)
+ORDER_COLUMNS = [
+    ("email", "VARCHAR(120) NOT NULL DEFAULT '' AFTER phone"),
+    ("store_id", "VARCHAR(20) DEFAULT '' AFTER address"),        # 超商店號
+    ("store_name", "VARCHAR(60) DEFAULT '' AFTER store_id"),     # 超商門市名稱
+    ("store_address", "VARCHAR(120) DEFAULT '' AFTER store_name"),  # 電子地圖回傳的門市地址
+    ("trade_no", "VARCHAR(32) DEFAULT '' AFTER note"),           # 綠界交易編號
+    ("payment_info", "VARCHAR(255) DEFAULT '' AFTER trade_no"),  # ATM 虛擬帳號等資訊
+    ("paid_at", "DATETIME DEFAULT NULL AFTER payment_info"),
 ]
 
 ADMIN_COLUMNS = [
@@ -330,6 +348,27 @@ def migrate_admin_columns(cur):
         if col not in existing:
             cur.execute(f"ALTER TABLE admins ADD COLUMN {col} {ddl}")
             print(f"  admins 新增欄位: {col}")
+
+
+def migrate_order_ecpay_columns(cur):
+    """訂單新增 Email / 超商門市 / 綠界交易欄位,並把配送方式擴充為三種。"""
+    existing = columns_of(cur, "orders")
+    for col, ddl in ORDER_COLUMNS:
+        if col not in existing:
+            cur.execute(f"ALTER TABLE orders ADD COLUMN {col} {ddl}")
+            print(f"  orders 新增欄位: {col}")
+
+    cur.execute(
+        "SELECT COLUMN_TYPE AS t FROM information_schema.COLUMNS"
+        " WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'orders'"
+        " AND COLUMN_NAME = 'shipping_method'")
+    row = cur.fetchone()
+    if row and "fami" not in row["t"]:
+        # 保留 pickup 讓舊訂單不失效,前台已改為只提供宅配 / 全家 / 7-11
+        cur.execute(
+            "ALTER TABLE orders MODIFY COLUMN shipping_method"
+            " ENUM('delivery','fami','unimart','pickup') DEFAULT 'delivery'")
+        print("  orders.shipping_method 擴充為 宅配 / 全家店到店 / 7-11 交貨便")
 
 
 def migrate_order_items(cur):
@@ -585,6 +624,7 @@ def main():
                 cur.execute(ddl)
             print("執行遷移...")
             migrate_admin_columns(cur)
+            migrate_order_ecpay_columns(cur)
             migrate_order_items(cur)
             migrate_products_to_package(cur)
             migrate_bom_precision(cur)

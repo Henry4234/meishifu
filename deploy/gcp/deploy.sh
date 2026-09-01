@@ -9,9 +9,39 @@ RUNTIME_SERVICE_ACCOUNT="meishifu-runtime@${PROJECT_ID}.iam.gserviceaccount.com"
 TAILSCALE_SECRET="${TAILSCALE_SECRET:-tailscale-auth-key}"
 TAILSCALE_DB_HOST="${TAILSCALE_DB_HOST:-100.74.151.0}"
 TAILSCALE_DB_PORT="${TAILSCALE_DB_PORT:-3306}"
+BACKEND_BASE_URL="${BACKEND_BASE_URL:-https://meishifu-backend-729707774647.asia-east1.run.app}"
+BACKEND_BASE_URL="${BACKEND_BASE_URL%/}"
+FRONTEND_BASE_URL="${FRONTEND_BASE_URL:-https://meishifu.org}"
+FRONTEND_BASE_URL="${FRONTEND_BASE_URL%/}"
+ECPAY_ENV="${ECPAY_ENV:-production}"
+ECPAY_MERCHANT_ID="${ECPAY_MERCHANT_ID:-}"
+ECPAY_LOGISTICS_ENV="${ECPAY_LOGISTICS_ENV:-stage}"
+ECPAY_HASH_KEY_SECRET="${ECPAY_HASH_KEY_SECRET:-meishifu-ecpay-hash-key}"
+ECPAY_HASH_IV_SECRET="${ECPAY_HASH_IV_SECRET:-meishifu-ecpay-hash-iv}"
+PAY_NOTIFY_URL="${PAY_NOTIFY_URL:-${BACKEND_BASE_URL}/api/payment/notify}"
+PAY_RESULT_URL="${PAY_RESULT_URL:-${BACKEND_BASE_URL}/api/payment/result}"
+PAY_INFO_URL="${PAY_INFO_URL:-${BACKEND_BASE_URL}/api/payment/notify}"
+PAY_RETURN_URL="${PAY_RETURN_URL:-${FRONTEND_BASE_URL}/cart.html}"
+ECPAY_MAP_REPLY_URL="${ECPAY_MAP_REPLY_URL:-${FRONTEND_BASE_URL}/api/logistics/map-reply}"
 
 if [[ -z "${DB_AC:-}" || -z "${DB_PW:-}" ]]; then
   echo "DB_AC and DB_PW must be set in the environment." >&2
+  exit 2
+fi
+if [[ -z "${ECPAY_MERCHANT_ID}" ]]; then
+  echo "ECPAY_MERCHANT_ID must be set in the environment." >&2
+  exit 2
+fi
+if [[ "${ECPAY_ENV}" != "stage" && "${ECPAY_ENV}" != "production" ]]; then
+  echo "ECPAY_ENV must be stage or production." >&2
+  exit 2
+fi
+if [[ "${ECPAY_LOGISTICS_ENV}" != "stage" && "${ECPAY_LOGISTICS_ENV}" != "production" ]]; then
+  echo "ECPAY_LOGISTICS_ENV must be stage or production." >&2
+  exit 2
+fi
+if [[ "${BACKEND_BASE_URL}" != https://* || "${FRONTEND_BASE_URL}" != https://* ]]; then
+  echo "BACKEND_BASE_URL and FRONTEND_BASE_URL must use HTTPS." >&2
   exit 2
 fi
 
@@ -77,6 +107,22 @@ ensure_secret() {
     --role roles/secretmanager.secretAccessor >/dev/null
 }
 
+provision_external_secret() {
+  local name="$1"
+  local value="$2"
+  if [[ -n "${value}" ]]; then
+    put_secret "${name}" "${value}"
+    return
+  fi
+  if ! "${GCLOUD_BIN}" secrets describe "${name}" >/dev/null 2>&1; then
+    echo "Secret ${name} does not exist. Supply its value once before deploying." >&2
+    exit 2
+  fi
+  "${GCLOUD_BIN}" secrets add-iam-policy-binding "${name}" \
+    --member "serviceAccount:${RUNTIME_SERVICE_ACCOUNT}" \
+    --role roles/secretmanager.secretAccessor >/dev/null
+}
+
 put_secret meishifu-db-user "${DB_AC}"
 put_secret meishifu-db-password "${DB_PW}"
 if [[ -n "${SECRET_KEY:-}" ]]; then
@@ -103,11 +149,17 @@ else
   exit 2
 fi
 
+# 正式 ECPay 金鑰只在明確提供新值時新增版本；日常手動部署沿用既有版本。
+provision_external_secret "${ECPAY_HASH_KEY_SECRET}" "${ECPAY_HASH_KEY:-}"
+provision_external_secret "${ECPAY_HASH_IV_SECRET}" "${ECPAY_HASH_IV:-}"
+
 "${GCLOUD_BIN}" builds submit . \
   --config deploy/cloudbuild.yaml \
   --substitutions "_REGION=${REGION},_TAG=${TAG}"
 
 IMAGE_BASE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}"
+BACKEND_ENV_VARS="DB_HOST=127.0.0.1,DB_PORT=13306,DB_NAME=${DB_NAME:-meishifu},DB_POOL_SIZE=${DB_POOL_SIZE:-4},UPLOAD_BUCKET=${UPLOAD_BUCKET},BACKEND_BASE_URL=${BACKEND_BASE_URL},FRONTEND_BASE_URL=${FRONTEND_BASE_URL},ECPAY_ENV=${ECPAY_ENV},ECPAY_MERCHANT_ID=${ECPAY_MERCHANT_ID},ECPAY_LOGISTICS_ENV=${ECPAY_LOGISTICS_ENV},PAY_NOTIFY_URL=${PAY_NOTIFY_URL},PAY_RESULT_URL=${PAY_RESULT_URL},PAY_INFO_URL=${PAY_INFO_URL},PAY_RETURN_URL=${PAY_RETURN_URL},ECPAY_MAP_REPLY_URL=${ECPAY_MAP_REPLY_URL},TAILSCALE_ENABLED=true,TAILSCALE_DB_HOST=${TAILSCALE_DB_HOST},TAILSCALE_DB_PORT=${TAILSCALE_DB_PORT},TAILSCALE_HOSTNAME=meishifu-backend"
+BACKEND_SECRETS="DB_AC=meishifu-db-user:latest,DB_PW=meishifu-db-password:latest,SECRET_KEY=meishifu-secret-key:latest,ECPAY_HASH_KEY=${ECPAY_HASH_KEY_SECRET}:latest,ECPAY_HASH_IV=${ECPAY_HASH_IV_SECRET}:latest,TAILSCALE_AUTHKEY=${TAILSCALE_SECRET}:latest"
 
 "${GCLOUD_BIN}" run deploy meishifu-backend \
   --image "${IMAGE_BASE}/backend:${TAG}" \
@@ -115,8 +167,8 @@ IMAGE_BASE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}"
   --port 8080 \
   --allow-unauthenticated \
   --ingress all \
-  --set-env-vars "DB_HOST=127.0.0.1,DB_PORT=13306,DB_NAME=${DB_NAME:-meishifu},DB_POOL_SIZE=${DB_POOL_SIZE:-4},UPLOAD_BUCKET=${UPLOAD_BUCKET},PAY_NOTIFY_URL=https://meishifu.org/api/payment/notify,PAY_RETURN_URL=https://meishifu.org/cart.html,TAILSCALE_ENABLED=true,TAILSCALE_DB_HOST=${TAILSCALE_DB_HOST},TAILSCALE_DB_PORT=${TAILSCALE_DB_PORT},TAILSCALE_HOSTNAME=meishifu-backend" \
-  --set-secrets "DB_AC=meishifu-db-user:latest,DB_PW=meishifu-db-password:latest,SECRET_KEY=meishifu-secret-key:latest,TAILSCALE_AUTHKEY=${TAILSCALE_SECRET}:latest"
+  --set-env-vars "${BACKEND_ENV_VARS}" \
+  --set-secrets "${BACKEND_SECRETS}"
 
 "${GCLOUD_BIN}" run deploy meishifu-frontend \
   --image "${IMAGE_BASE}/frontend:${TAG}" \

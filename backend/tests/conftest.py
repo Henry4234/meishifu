@@ -16,9 +16,20 @@ from app import create_app  # noqa: E402
 config.SECRET_KEY = "meishifu-ci-test-secret-key-at-least-32-bytes"
 
 
+def _no_real_db(*_args, **_kwargs):
+    """測試環境沒有 MySQL:任何漏 mock 的 DB 存取都要立刻失敗並指出原因,
+    而不是去連真的資料庫 (在 CI 會變成 Connection refused)。"""
+    raise AssertionError(
+        "測試嘗試連線真的資料庫,請用 monkeypatch 把 db.query / db.query_one / "
+        "db.execute / db.get_connection 換掉"
+    )
+
+
 @pytest.fixture(autouse=True)
-def reset_db_pool():
+def reset_db_pool(monkeypatch):
     db._pool = None
+    monkeypatch.setattr(db.pymysql, "connect", _no_real_db)
+    monkeypatch.setattr(db, "PooledDB", _no_real_db)
     yield
     db._pool = None
 

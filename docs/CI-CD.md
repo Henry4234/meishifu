@@ -114,7 +114,21 @@ bash deploy/gcp/bootstrap-github-actions.sh
 | `GCP_SERVICE_ACCOUNT` | `github-actions-deployer@meishifu.iam.gserviceaccount.com` |
 
 這兩個值是 resource identifiers，不是密碼。GitHub repository 不需要保存
-`DB_AC`、`DB_PW`、`SECRET_KEY` 或 GCP JSON key。
+`DB_AC`、`DB_PW`、`SECRET_KEY`、`ECPAY_HASH_KEY`、`ECPAY_HASH_IV` 或 GCP JSON key。
+
+ECPay 正式金鑰必須先建立在 GCP Secret Manager；CI 只引用 secret resource name，
+不會讀取或輸出 secret value：
+
+| Cloud Run env | Secret Manager resource |
+|---|---|
+| `ECPAY_HASH_KEY` | `meishifu-ecpay-hash-key` |
+| `ECPAY_HASH_IV` | `meishifu-ecpay-hash-iv` |
+
+`ECPAY_MERCHANT_ID`、`ECPAY_ENV`、正式站台 URL 與 callback URL 為非機密設定，
+由 `.github/workflows/ci-cd.yml` 傳給 `deploy/gcp/deploy-ci.sh`。ECPay 的 server-to-server
+`ReturnURL` 使用 Cloud Run origin，避免經過 Cloudflare；付款結果頁再導回 `meishifu.org`。
+金流目前使用 `production`；物流在取得正式物流專用 MerchantID 前維持 `stage`，兩者
+不可混用帳號。
 
 ## GCP 部署內容
 
@@ -124,7 +138,7 @@ bash deploy/gcp/bootstrap-github-actions.sh
 1. 在 GitHub-hosted runner 建置 frontend、admin、backend images，並以完整 commit SHA
    推送到 `asia-east1-docker.pkg.dev/meishifu/meishifu`。
 2. 更新 `meishifu-backend`、`meishifu-frontend`、`meishifu-admin` 三個既有 services。
-3. backend revision 繼續引用既有 Secret Manager 與 private uploads bucket。
+3. backend revision 繼續引用既有 DB/JWT/Tailscale/ECPay Secret Manager 與 private uploads bucket。
 4. workflow 對三個 Cloud Run origins，以及 `meishifu.org` 的 API、官網與 management
    路由執行 smoke test。
 
