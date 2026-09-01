@@ -69,8 +69,8 @@ PAY_INFO_URL = os.getenv("PAY_INFO_URL", BACKEND_BASE_URL + "/api/payment/notify
 PAY_RETURN_URL = os.getenv("PAY_RETURN_URL", FRONTEND_BASE_URL + "/cart.html")
 
 # ---------------------------------------------------------------- 物流 (綠界電子地圖)
-# 物流的商店代號與金流是兩組不同的帳號。預設為綠界 C2C 測試特店 (2000933),
-# 因為全家店到店 / 7-11 交貨便屬於 C2C (FAMIC2C / UNIMARTC2C)。
+# 預設為綠界 C2C 測試特店 (2000933)。正式環境須改用賣家的綠界會員編號，
+# 並確認已開通全家店到店 / 7-11 交貨便對應的 C2C 物流服務。
 ECPAY_LOGISTICS_MERCHANT_ID = os.getenv("ECPAY_LOGISTICS_MERCHANT_ID", "2000933")
 ECPAY_LOGISTICS_ENV = os.getenv("ECPAY_LOGISTICS_ENV", "stage").lower()
 if ECPAY_LOGISTICS_ENV not in ("stage", "production"):
