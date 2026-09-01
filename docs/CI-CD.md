@@ -113,6 +113,18 @@ bash deploy/gcp/bootstrap-github-actions.sh
 | `GCP_WORKLOAD_IDENTITY_PROVIDER` | 腳本輸出的完整 provider resource name |
 | `GCP_SERVICE_ACCOUNT` | `github-actions-deployer@meishifu.iam.gserviceaccount.com` |
 
+綠界**物流**(全家店到店 / 7-11 交貨便的電子地圖)另有兩個選填 variables。物流的商店
+代號與金流是兩組不同的帳號,未設定時一律使用綠界 C2C 測試特店,消費者看到的會是
+**測試環境的選店地圖**:
+
+| GitHub variable | 值 | 未設定時 |
+|---|---|---|
+| `ECPAY_LOGISTICS_ENV` | `production` | `stage`(測試地圖) |
+| `ECPAY_LOGISTICS_MERCHANT_ID` | 綠界核發的正式 C2C 物流商店代號 | `2000933`(測試特店) |
+
+兩者必須一起設定:`ECPAY_LOGISTICS_ENV=production` 但商店代號仍是 `2000933` 時,
+deploy 會直接失敗,避免用測試特店打正式物流。
+
 這兩個值是 resource identifiers，不是密碼。GitHub repository 不需要保存
 `DB_AC`、`DB_PW`、`SECRET_KEY`、`ECPAY_HASH_KEY`、`ECPAY_HASH_IV` 或 GCP JSON key。
 
