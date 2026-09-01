@@ -213,7 +213,8 @@
       try {
         const o = await adminFetch("/admin/orders/" + id);
         const destination = o.store_name
-          ? `${o.store_name}${o.store_id ? " (" + o.store_id + ")" : ""}`
+          ? `${o.store_name}${o.store_id ? " (" + o.store_id + ")" : ""}` +
+            (o.store_address ? `<br><span class="text-on-surface-variant">${o.store_address}</span>` : "")
           : (o.address || "-");
         document.getElementById("detail-body").innerHTML = `
       <div class="space-y-sm font-body-md text-body-md">
@@ -222,7 +223,7 @@
         <div class="flex justify-between"><span class="text-on-surface-variant">訂購人</span><span>${o.customer_name}</span></div>
         <div class="flex justify-between"><span class="text-on-surface-variant">電話</span><span>${o.phone}</span></div>
         <div class="flex justify-between"><span class="text-on-surface-variant">Email</span><span>${o.email || "-"}</span></div>
-        <div class="flex justify-between"><span class="text-on-surface-variant">${o.store_name ? "取件門市" : "地址"}</span><span>${destination}</span></div>
+        <div class="flex justify-between gap-md"><span class="text-on-surface-variant shrink-0">${o.store_name ? "取件門市" : "地址"}</span><span class="text-right">${destination}</span></div>
         <div class="flex justify-between"><span class="text-on-surface-variant">配送 / 付款</span><span>${o.shipping_label} / ${o.payment_label}</span></div>
         <div class="flex justify-between"><span class="text-on-surface-variant">金流交易編號</span><span>${o.trade_no || "-"}</span></div>
         ${o.payment_info ? `<div class="flex justify-between gap-md"><span class="text-on-surface-variant shrink-0">繳費資訊</span><span class="text-right">${o.payment_info}</span></div>` : ""}

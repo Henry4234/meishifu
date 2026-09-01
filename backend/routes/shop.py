@@ -143,8 +143,6 @@ def create_order():
     phone = (customer.get("phone") or "").strip()
     email = (customer.get("email") or "").strip()
     address = (customer.get("address") or "").strip()
-    store_id = (customer.get("store_id") or "").strip()[:20]
-    store_name = (customer.get("store_name") or "").strip()[:60]
     shipping_method = data.get("shipping_method", "delivery")
     payment_method = data.get("payment_method", "credit")
 
@@ -156,8 +154,25 @@ def create_order():
         return jsonify({"error": "配送或付款方式不正確"}), 400
     if shipping_method == "delivery" and not address:
         return jsonify({"error": "宅配請填寫收件地址"}), 400
-    if shipping_method in CVS_METHODS and not store_name:
-        return jsonify({"error": "店到店請填寫取件門市"}), 400
+
+    # 店到店的門市必須來自綠界電子地圖,並帶回選店時產生的簽章
+    store_id = store_name = store_address = ""
+    if shipping_method in CVS_METHODS:
+        store = customer.get("store") or {}
+        store_id = (store.get("store_id") or "").strip()[:20]
+        store_name = (store.get("store_name") or "").strip()[:60]
+        store_address = (store.get("store_address") or "").strip()[:120]
+        signed = {
+            "store_id": store_id, "store_name": store_name,
+            "store_address": store_address, "sub_type": store.get("sub_type", ""),
+        }
+        if not store_id or not store_name:
+            return jsonify({"error": "請點選「選擇門市」挑選取件門市"}), 400
+        if store.get("sub_type") != ecpay.LOGISTICS_SUBTYPE[shipping_method]:
+            return jsonify({"error": "取件門市與配送方式不符,請重新選擇門市"}), 400
+        if not ecpay.verify_store(signed, store.get("signature", "")):
+            return jsonify({"error": "門市資料驗證失敗,請重新選擇門市"}), 400
+
     if not items:
         return jsonify({"error": "購物車是空的"}), 400
 
@@ -191,11 +206,12 @@ def create_order():
             cur.execute(
                 """INSERT INTO orders
                    (order_no, customer_name, phone, email, address, store_id, store_name,
-                    shipping_method, payment_method, subtotal, shipping_fee, total, note)
-                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                    store_address, shipping_method, payment_method, subtotal, shipping_fee,
+                    total, note)
+                   VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
                 (order_no, name, phone, email, address, store_id, store_name,
-                 shipping_method, payment_method, subtotal, shipping_fee, total,
-                 (data.get("note") or "")[:255]),
+                 store_address, shipping_method, payment_method, subtotal, shipping_fee,
+                 total, (data.get("note") or "")[:255]),
             )
             order_id = cur.lastrowid
             cur.executemany(
@@ -213,7 +229,8 @@ def create_order():
 
     order = {
         "order_no": order_no, "customer_name": name, "phone": phone, "email": email,
-        "address": address, "store_name": store_name, "shipping_method": shipping_method,
+        "address": address, "store_id": store_id, "store_name": store_name,
+        "store_address": store_address, "shipping_method": shipping_method,
         "payment_method": payment_method, "subtotal": subtotal,
         "shipping_fee": shipping_fee, "total": total,
     }

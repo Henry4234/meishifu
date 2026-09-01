@@ -20,6 +20,18 @@ def _money(n) -> str:
     return f"NT$ {int(n):,}"
 
 
+def store_destination(order: dict) -> str:
+    """店到店顯示門市 (名稱/店號/地址),宅配顯示收件地址。"""
+    name = (order.get("store_name") or "").strip()
+    if not name:
+        return (order.get("address") or "").strip() or "-"
+    store_id = (order.get("store_id") or "").strip()
+    parts = [f"{name} ({store_id})" if store_id else name]
+    if order.get("store_address"):
+        parts.append(order["store_address"])
+    return " ".join(parts)
+
+
 def _send(to_email: str, subject: str, html: str) -> None:
     cfg = config.MAIL
     if not cfg["host"]:
@@ -66,7 +78,7 @@ def render_order_created(order: dict, items) -> str:
     )
     shipping = config.SHIPPING_LABELS.get(order["shipping_method"], order["shipping_method"])
     payment = config.PAYMENT_LABELS.get(order["payment_method"], order["payment_method"])
-    destination = order.get("store_name") or order.get("address") or "-"
+    destination = store_destination(order)
     return f"""
 <div style="font-family:'Helvetica Neue',Arial,'Microsoft JhengHei',sans-serif;
             background:#fff8f7;padding:24px;color:#30121a">

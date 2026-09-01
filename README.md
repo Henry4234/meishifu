@@ -34,13 +34,14 @@ website/
    ├─ config.py          # 讀取 .env、金流參數
    ├─ db.py              # PyMySQL 連線輔助
    ├─ init_db.py         # 建表 + 種子資料 (可重複執行,含欄位遷移)
-   ├─ ecpay.py           # 綠界 AioCheckOut V5 付款參數與 CheckMacValue
+   ├─ ecpay.py           # 綠界付款參數/CheckMacValue、電子地圖參數與門市簽章
    ├─ mailer.py          # 訂單成立 / 付款成功通知信 (SMTP)
    └─ routes/
       ├─ shop.py         # 商品查詢、建立訂單 (價格以 DB 為準)
       ├─ admin.py        # 登入 (JWT + 角色)、儀表板、訂單管理
       ├─ manage.py       # 材料 / 產品 / 用戶權限 / 財務 API
-      └─ payment.py      # 綠界付款回呼 (notify / result / status)
+      ├─ payment.py      # 綠界付款回呼 (notify / result / status)
+      └─ logistics.py    # 綠界電子地圖選店 (map / map-reply)
 ```
 
 ## 啟動方式 (uv)
@@ -215,6 +216,8 @@ Federation 部署三個 Cloud Run services，不使用長效 GCP JSON key。
 | POST | /api/payment/notify | 綠界付款結果回呼 (ReturnURL,驗章後更新訂單) |
 | POST | /api/payment/result | 綠界付款後瀏覽器導回,驗章後 303 轉回前台結帳結果頁 |
 | GET | /api/payment/status/:order_no | 前台結帳結果頁查詢付款狀態 |
+| GET | /api/logistics/map?method=fami\|unimart | 導向綠界電子地圖選擇取件門市 |
+| POST | /api/logistics/map-reply | 綠界回傳選定門市,簽章後帶回購物車頁 |
 | POST | /api/payment/mock-pay | 開發用模擬付款 (上線前移除) |
 
 ### 後台 (JWT,`Authorization: Bearer <token>`)
@@ -256,7 +259,7 @@ package (禮盒 = 上架販售的商品) ← order_items 指向這裡
 | product_materials | 單品配方 BOM:每 1 單位產品的材料用量 |
 | materials | 材料主檔 (分類/批號/單位/庫存/安全水位/單位成本/效期) |
 | material_logs | 材料異動紀錄 (採購/消耗/盤點調整) |
-| orders / order_items | 訂單主檔與明細 (`package_id` / `package_name` 為下單當下快照;含 email、超商門市、綠界 trade_no / payment_info / paid_at) |
+| orders / order_items | 訂單主檔與明細 (`package_id` / `package_name` 為下單當下快照;含 email、超商門市 store_id/store_name/store_address、綠界 trade_no / payment_info / paid_at) |
 | admins | 後台用戶 (密碼 hash、email、角色、啟停用、最後登入) |
 | schema_migrations | 已套用的結構遷移紀錄,讓 init_db.py 可重複執行 |
 
@@ -308,14 +311,37 @@ package (禮盒 = 上架販售的商品) ← order_items 指向這裡
 
 配送與運費 (滿 NT$2,000 免運):
 
-| 配送方式 | 代碼 | 運費 | 收件欄位 |
-|---|---|---|---|
-| 宅配到府 | `delivery` | NT$120 | 收件地址 |
-| 全家店到店 | `fami` | NT$70 | 取件門市名稱 / 店號 |
-| 7-11 交貨便 | `unimart` | NT$70 | 取件門市名稱 / 店號 |
+| 配送方式 | 代碼 | 綠界物流子類型 | 運費 | 收件欄位 |
+|---|---|---|---|---|
+| 宅配到府 | `delivery` | — | NT$120 | 收件地址 |
+| 全家店到店 | `fami` | `FAMIC2C` | NT$70 | 由電子地圖選店 |
+| 7-11 交貨便 | `unimart` | `UNIMARTC2C` | NT$70 | 由電子地圖選店 |
 
-> 門市目前為手動填寫。若要改成綠界「電子地圖」選店,需另外串接綠界物流 API
-> (ExpressMap + ServerReplyURL),與本次金流串接互相獨立。
+## 店到店選店 (綠界電子地圖)
+
+選擇全家店到店或 7-11 交貨便時,門市不再手動輸入,而是開新視窗進綠界電子地圖挑選:
+
+```
+購物車按「選擇門市」
+  → 開新視窗到 GET /api/logistics/map?method=fami&device=0
+  → 後端回傳一頁自動送出的表單,把消費者帶到綠界電子地圖
+  → 消費者選好門市,綠界 POST 到 /api/logistics/map-reply
+  → 後端把門市資料簽章後 postMessage 給購物車頁並關閉視窗
+  → 送出訂單時附上門市與簽章,後端驗證後才寫入 orders
+```
+
+- **物流商店代號與金流不同**:全家店到店 / 7-11 交貨便屬於 C2C,`.env` 以
+  `ECPAY_LOGISTICS_MERCHANT_ID` 設定 (預設為綠界 C2C 測試特店 `2000933`,
+  金流測試特店則是 `2000132`)。
+- **電子地圖不需要 CheckMacValue**;為避免前端在送出訂單時竄改門市,
+  `/api/logistics/map-reply` 會用 `SECRET_KEY` 對
+  `store_id|store_name|store_address|sub_type` 做 HMAC-SHA256 簽章,
+  建立訂單時 `ecpay.verify_store()` 會再驗一次,簽章不符或門市與配送方式不符都會回 400。
+- 選店視窗以 `postMessage` 回傳結果,因此 `ECPAY_MAP_REPLY_URL` 必須與前台**同源**
+  (預設取 `FRONTEND_BASE_URL` 的來源 + `/api/logistics/map-reply`);購物車頁只接受
+  同源且 `source === "ecpay-map"` 的訊息。
+- 目前只做到「選店 + 記錄門市」。若要進一步由系統建立物流訂單 / 列印托運單,
+  需再串綠界物流的建立訂單 API,屆時還要在 `.env` 補上物流專用的 HashKey / HashIV。
 
 ## 訂單通知信
 

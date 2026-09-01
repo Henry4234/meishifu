@@ -12,6 +12,9 @@ CheckMacValue 演算法 (EncryptType=1,SHA256):
     → .NET 風格 UrlEncode → 轉小寫 → SHA256 → 轉大寫
 """
 import hashlib
+import hmac
+import random
+import string
 from datetime import datetime
 from urllib.parse import quote_plus
 
@@ -21,6 +24,12 @@ import config
 CHOOSE_PAYMENT = {
     "credit": "Credit",
     "transfer": "ATM",
+}
+
+# 本站配送方式 → 綠界物流子類型 (店到店皆為 C2C)
+LOGISTICS_SUBTYPE = {
+    "fami": "FAMIC2C",       # 全家店到店
+    "unimart": "UNIMARTC2C",  # 7-11 交貨便
 }
 
 # 綠界回傳碼:1 = 付款成功;2 = ATM 取號成功 (尚未付款)
@@ -96,6 +105,40 @@ def build_checkout(order_no: str, total: int, payment_method: str, items, shippi
         "action": config.ECPAY_AIO_URL,
         "params": params,
     }
+
+
+# ------------------------------------------------------------- 電子地圖 (選店)
+# 門市欄位:綠界電子地圖回傳的內容,簽章後交給前端,建立訂單時再驗一次
+STORE_FIELDS = ("store_id", "store_name", "store_address", "sub_type")
+
+
+def map_trade_no() -> str:
+    """電子地圖要求的 MerchantTradeNo (20 碼英數)。選店時尚未有訂單,故另外產生。"""
+    return "MAP" + datetime.now().strftime("%Y%m%d%H%M%S") + "".join(random.choices(string.digits, k=3))
+
+
+def map_params(method: str, device: int = 0) -> dict:
+    """產生開啟綠界電子地圖所需的表單參數 (電子地圖不需要 CheckMacValue)。"""
+    return {
+        "MerchantID": config.ECPAY_LOGISTICS_MERCHANT_ID,
+        "MerchantTradeNo": map_trade_no(),
+        "LogisticsType": "CVS",
+        "LogisticsSubType": LOGISTICS_SUBTYPE[method],
+        "IsCollection": "N",                 # 本站於綠界金流付款,不使用超商代收貨款
+        "ServerReplyURL": config.ECPAY_MAP_REPLY_URL,
+        "ExtraData": method,                 # 原值回傳,用來辨識是哪一種配送方式
+        "Device": str(1 if device else 0),
+    }
+
+
+def sign_store(store: dict) -> str:
+    """對電子地圖回傳的門市資料簽章,避免前端在送出訂單時竄改門市。"""
+    raw = "|".join(str(store.get(f, "")) for f in STORE_FIELDS)
+    return hmac.new(config.SECRET_KEY.encode("utf-8"), raw.encode("utf-8"), hashlib.sha256).hexdigest()
+
+
+def verify_store(store: dict, signature: str) -> bool:
+    return bool(signature) and hmac.compare_digest(sign_store(store), signature)
 
 
 def atm_info(data: dict) -> str:

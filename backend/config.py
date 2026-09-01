@@ -1,6 +1,7 @@
 """集中管理環境設定,連線資訊一律從專案根目錄的 .env 讀取。"""
 import os
 from pathlib import Path
+from urllib.parse import urlparse
 
 from dotenv import load_dotenv
 
@@ -36,6 +37,11 @@ JWT_EXPIRE_HOURS = 8
 BACKEND_BASE_URL = os.getenv("BACKEND_BASE_URL", "http://localhost:5001").rstrip("/")
 FRONTEND_BASE_URL = os.getenv("FRONTEND_BASE_URL", "http://localhost:5500/frontend").rstrip("/")
 
+# 消費者瀏覽器看到的站台來源 (前台與 /api 同源;電子地圖選店以 postMessage 回傳
+# 給購物車頁,兩邊必須同源才收得到)
+_frontend = urlparse(FRONTEND_BASE_URL)
+PUBLIC_ORIGIN = f"{_frontend.scheme}://{_frontend.netloc}" if _frontend.netloc else FRONTEND_BASE_URL
+
 # ---------------------------------------------------------------- 金流 (綠界 ECPay)
 # 預設值為綠界官方「測試商店」參數,可直接用測試信用卡完成全流程;
 # 正式上線時於 .env 覆寫 ECPAY_MERCHANT_ID / ECPAY_HASH_KEY / ECPAY_HASH_IV
@@ -57,6 +63,20 @@ PAY_NOTIFY_URL = os.getenv("PAY_NOTIFY_URL", BACKEND_BASE_URL + "/api/payment/no
 PAY_RESULT_URL = os.getenv("PAY_RESULT_URL", BACKEND_BASE_URL + "/api/payment/result")
 # 前台結帳結果頁
 PAY_RETURN_URL = os.getenv("PAY_RETURN_URL", FRONTEND_BASE_URL + "/cart.html")
+
+# ---------------------------------------------------------------- 物流 (綠界電子地圖)
+# 物流的商店代號與金流是兩組不同的帳號。預設為綠界 C2C 測試特店 (2000933),
+# 因為全家店到店 / 7-11 交貨便屬於 C2C (FAMIC2C / UNIMARTC2C)。
+ECPAY_LOGISTICS_MERCHANT_ID = os.getenv("ECPAY_LOGISTICS_MERCHANT_ID", "2000933")
+
+ECPAY_MAP_URL = (
+    "https://logistics.ecpay.com.tw/Express/map"
+    if ECPAY_ENV == "production"
+    else "https://logistics-stage.ecpay.com.tw/Express/map"
+)
+# 消費者在電子地圖選好門市後,綠界會 POST 到這個網址 (需公開可連)。
+# 預設走前台同源的 /api,選店視窗才能用 postMessage 把門市送回購物車頁。
+ECPAY_MAP_REPLY_URL = os.getenv("ECPAY_MAP_REPLY_URL", PUBLIC_ORIGIN + "/api/logistics/map-reply")
 
 # ---------------------------------------------------------------- 訂單通知信 (SMTP)
 # 未設定 SMTP_HOST 時不寄信,只在後端 log 印出信件內容 (本機開發用)。

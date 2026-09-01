@@ -1,3 +1,4 @@
+import json
 from datetime import datetime
 from email.header import decode_header, make_header
 
@@ -85,6 +86,20 @@ def _customer(**overrides):
     return base
 
 
+def _store(method="fami", **overrides):
+    """模擬綠界電子地圖選回並簽章的門市。"""
+    store = {
+        "store_id": "001779",
+        "store_name": "信義門市",
+        "store_address": "台北市信義區信義路五段7號",
+        "sub_type": ecpay.LOGISTICS_SUBTYPE[method],
+        "method": method,
+    }
+    store["signature"] = ecpay.sign_store(store)
+    store.update(overrides)
+    return store
+
+
 def test_create_order_validations(client, monkeypatch):
     def post(payload):
         return client.post("/api/orders", json=payload)
@@ -133,8 +148,25 @@ def test_create_order_validations(client, monkeypatch):
     assert store_missing.status_code == 400
     assert "門市" in store_missing.get_json()["error"]
 
+    # 門市必須來自電子地圖:簽章錯誤、或門市與配送方式不符,都要擋下來
+    forged = post({
+        "customer": _customer(store=_store("fami", store_name="被竄改的門市")),
+        "shipping_method": "fami",
+        "items": [{"package_id": 1, "quantity": 1}],
+    })
+    assert forged.status_code == 400
+    assert "驗證失敗" in forged.get_json()["error"]
+
+    mismatched = post({
+        "customer": _customer(store=_store("fami")),
+        "shipping_method": "unimart",
+        "items": [{"package_id": 1, "quantity": 1}],
+    })
+    assert mismatched.status_code == 400
+    assert "不符" in mismatched.get_json()["error"]
+
     base = {
-        "customer": _customer(store_name="信義門市"),
+        "customer": _customer(store=_store("fami")),
         "shipping_method": "fami",
         "items": [],
     }
@@ -261,6 +293,89 @@ def test_create_and_fetch_order(client, monkeypatch):
 
     monkeypatch.setattr(db, "query_one", lambda *_args, **_kwargs: None)
     assert client.get("/api/orders/none?phone=0").status_code == 404
+
+
+def test_create_cvs_order_stores_map_selection(client, monkeypatch):
+    """店到店訂單存下電子地圖選回的門市,通知信也顯示門市。"""
+    conn = OrderConnection()
+    mails = []
+    monkeypatch.setattr(
+        db, "query_one", lambda *_args, **_kwargs: {"id": 3, "name": "禮盒", "price": 500})
+    monkeypatch.setattr(db, "get_connection", lambda: conn)
+    monkeypatch.setattr(shop, "_gen_order_no", lambda: "MS-CVS")
+    monkeypatch.setattr(mailer, "send_async", lambda *args: mails.append(args))
+
+    response = client.post("/api/orders", json={
+        "customer": _customer(name="王小明", store=_store("unimart")),
+        "shipping_method": "unimart",
+        "payment_method": "credit",
+        "items": [{"package_id": 3, "quantity": 1}],
+    })
+    assert response.status_code == 201
+    assert response.get_json()["shipping_fee"] == config.CVS_SHIPPING_FEE
+
+    inserted = conn.cur.executed[0][1]
+    assert "001779" in inserted and "信義門市" in inserted
+    assert "台北市信義區信義路五段7號" in inserted
+    assert "信義門市 (001779)" in mails[0][2]
+
+
+def test_ecpay_map_params_and_store_signature():
+    params = ecpay.map_params("fami")
+    assert params["LogisticsType"] == "CVS"
+    assert params["LogisticsSubType"] == "FAMIC2C"
+    assert params["MerchantID"] == config.ECPAY_LOGISTICS_MERCHANT_ID
+    assert params["IsCollection"] == "N"
+    assert params["ServerReplyURL"] == config.ECPAY_MAP_REPLY_URL
+    assert params["ExtraData"] == "fami"
+    assert params["Device"] == "0"
+    assert len(params["MerchantTradeNo"]) == 20 and params["MerchantTradeNo"].isalnum()
+    assert ecpay.map_params("unimart", device=1)["LogisticsSubType"] == "UNIMARTC2C"
+    assert ecpay.map_params("unimart", device=1)["Device"] == "1"
+
+    store = {"store_id": "001779", "store_name": "信義門市",
+             "store_address": "台北市", "sub_type": "FAMIC2C"}
+    sig = ecpay.sign_store(store)
+    assert ecpay.verify_store(store, sig) is True
+    assert ecpay.verify_store({**store, "store_id": "000001"}, sig) is False
+    assert ecpay.verify_store(store, "") is False
+
+
+def test_logistics_map_endpoints(client):
+    # 開啟電子地圖:自動送出的表單
+    page = client.get("/api/logistics/map?method=fami&device=1").get_data(as_text=True)
+    assert config.ECPAY_MAP_URL in page
+    assert 'name="LogisticsSubType" value="FAMIC2C"' in page
+    assert 'name="Device" value="1"' in page
+    assert "map-form" in page and "submit()" in page
+    assert client.get("/api/logistics/map?method=blackcat").status_code == 400
+
+    # 綠界回傳選定門市:簽章後以 postMessage 帶回購物車頁
+    reply = client.post("/api/logistics/map-reply", data={
+        "MerchantID": "2000933",
+        "MerchantTradeNo": "MAP20260901120000123",
+        "LogisticsSubType": "UNIMARTC2C",
+        "CVSStoreID": "991182",
+        "CVSStoreName": "美麗門市",
+        "CVSAddress": "台北市大安區和平東路一段1號",
+        "CVSTelephone": "0223456789",
+        "CVSOutSide": "0",
+        "ExtraData": "unimart",
+    })
+    html = reply.get_data(as_text=True)
+    assert "美麗門市" in html and "991182" in html
+    assert f'postMessage(payload, "{config.PUBLIC_ORIGIN}")' in html
+
+    payload = json.loads(html.split("var payload = ", 1)[1].split(";\n", 1)[0])
+    assert payload["source"] == "ecpay-map"
+    assert payload["store"]["method"] == "unimart"
+    assert payload["store"]["store_phone"] == "0223456789"
+    assert ecpay.verify_store(payload["store"], payload["store"]["signature"])
+
+    # ExtraData 不在白名單時不回傳配送方式,前台會要求重新選店
+    other = client.post("/api/logistics/map-reply", data={
+        "CVSStoreID": "1", "CVSStoreName": "X", "ExtraData": "evil"}).get_data(as_text=True)
+    assert json.loads(other.split("var payload = ", 1)[1].split(";\n", 1)[0])["store"]["method"] == ""
 
 
 def test_ecpay_check_mac_value():

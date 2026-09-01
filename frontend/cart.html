@@ -43,11 +43,21 @@
 <label class="font-label-md text-label-md text-on-surface" for="address">收件地址</label>
 <input class="w-full bg-surface-container-low text-on-surface font-body-md text-body-md px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary transition-shadow ring-1 ring-tertiary-fixed" id="address" placeholder="台北市信義區..." type="text"/>
 </div>
-<div class="hidden flex-col gap-1" id="store-field">
-<label class="font-label-md text-label-md text-on-surface" for="storeName">取件門市</label>
-<input class="w-full bg-surface-container-low text-on-surface font-body-md text-body-md px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary transition-shadow ring-1 ring-tertiary-fixed" id="storeName" placeholder="例:台北信義門市" type="text"/>
-<input class="w-full bg-surface-container-low text-on-surface font-body-md text-body-md px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary transition-shadow ring-1 ring-tertiary-fixed mt-2" id="storeId" placeholder="門市店號 (選填)" type="text"/>
-<p class="font-caption text-caption text-on-surface-variant" id="store-hint">請填寫您方便取件的門市名稱與店號。</p>
+<div class="hidden flex-col gap-2" id="store-field">
+<label class="font-label-md text-label-md text-on-surface">取件門市</label>
+<div class="flex flex-col gap-1 bg-surface-container-low rounded-lg px-4 py-3 ring-1 ring-tertiary-fixed" id="store-empty">
+<p class="font-body-md text-body-md text-on-surface-variant">尚未選擇門市</p>
+</div>
+<div class="hidden flex-col gap-1 bg-surface-container-low rounded-lg px-4 py-3 ring-1 ring-primary" id="store-picked">
+<p class="font-label-md text-label-md text-on-surface" id="store-name"></p>
+<p class="font-caption text-caption text-on-surface-variant" id="store-address"></p>
+<p class="font-caption text-caption text-on-surface-variant" id="store-id"></p>
+</div>
+<button class="w-full py-3 bg-secondary-container text-on-secondary-container font-label-md text-label-md rounded-lg hover:shadow-md transition-all flex items-center justify-center gap-2" id="pick-store-btn" type="button">
+<span class="material-symbols-outlined text-[20px]">location_on</span>
+<span id="pick-store-label">選擇門市</span>
+</button>
+<p class="font-caption text-caption text-on-surface-variant" id="store-hint">將開啟綠界門市地圖,選好門市後會自動帶回。</p>
 </div>
 </div>
 <div class="h-px w-full bg-surface-variant my-2"></div>
@@ -199,14 +209,32 @@ const FREE_SHIPPING_THRESHOLD = 2000;
 const SHIPPING_FEES = { delivery: 120, fami: 70, unimart: 70 };
 const CVS_METHODS = ["fami", "unimart"];
 const STORE_HINTS = {
-  fami: "請填寫取件的全家門市名稱與店號 (可於全家官網查詢)。",
-  unimart: "請填寫取件的 7-11 門市名稱與店號 (可於 7-11 官網查詢)。",
+  fami: "將開啟綠界門市地圖,選擇取件的全家門市後會自動帶回。",
+  unimart: "將開啟綠界門市地圖,選擇取件的 7-11 門市後會自動帶回。",
 };
 
 function shippingMethod() { return document.querySelector('input[name="shipping"]:checked').value; }
 function paymentMethod() { return document.querySelector('input[name="payment"]:checked').value; }
 
-/* 宅配填地址、店到店填門市 */
+/* 由綠界電子地圖選回的門市 (含簽章,後端會再驗一次) */
+let selectedStore = null;
+
+function renderStore() {
+  const picked = document.getElementById("store-picked");
+  const empty = document.getElementById("store-empty");
+  picked.classList.toggle("hidden", !selectedStore);
+  picked.classList.toggle("flex", !!selectedStore);
+  empty.classList.toggle("hidden", !!selectedStore);
+  empty.classList.toggle("flex", !selectedStore);
+  document.getElementById("pick-store-label").textContent = selectedStore ? "重新選擇門市" : "選擇門市";
+  if (selectedStore) {
+    document.getElementById("store-name").textContent = selectedStore.store_name;
+    document.getElementById("store-address").textContent = selectedStore.store_address || "";
+    document.getElementById("store-id").textContent = "店號 " + selectedStore.store_id;
+  }
+}
+
+/* 宅配填地址、店到店選門市 */
 function syncShippingFields() {
   const method = shippingMethod();
   const isCvs = CVS_METHODS.includes(method);
@@ -217,7 +245,35 @@ function syncShippingFields() {
   storeField.classList.toggle("hidden", !isCvs);
   storeField.classList.toggle("flex", isCvs);
   if (isCvs) document.getElementById("store-hint").textContent = STORE_HINTS[method];
+  // 換過配送方式後,先前選的門市屬於另一家超商,必須重選
+  if (!isCvs || (selectedStore && selectedStore.method !== method)) selectedStore = null;
+  renderStore();
 }
+
+/* 開新視窗進綠界電子地圖;選好門市後由 /api/logistics/map-reply 以 postMessage 帶回 */
+document.getElementById("pick-store-btn").addEventListener("click", () => {
+  const method = shippingMethod();
+  if (!CVS_METHODS.includes(method)) return;
+  const device = window.innerWidth < 768 ? 1 : 0;
+  const url = `${API_BASE}/logistics/map?method=${method}&device=${device}`;
+  const win = window.open(url, "ecpayMap", "width=980,height=760,menubar=no,toolbar=no");
+  if (!win) showToast("瀏覽器阻擋了門市地圖視窗,請允許彈出視窗後再試一次");
+});
+
+window.addEventListener("message", (event) => {
+  // 選店視窗與購物車頁同源 (皆走 /api),非同源的訊息一律忽略
+  if (event.origin !== window.location.origin) return;
+  const data = event.data;
+  if (!data || data.source !== "ecpay-map" || !data.store || !data.store.store_id) return;
+  selectedStore = data.store;
+  if (selectedStore.method && selectedStore.method !== shippingMethod()) {
+    selectedStore = null;
+    showToast("選到的門市與目前的配送方式不符,請重新選擇");
+  } else {
+    showToast(`已選擇門市:${selectedStore.store_name}`);
+  }
+  renderStore();
+});
 
 function updateTotals() {
   const cart = getCart();
@@ -275,6 +331,11 @@ document.getElementById("checkout-form").addEventListener("submit", async (e) =>
     errEl.classList.remove("hidden");
     return;
   }
+  if (CVS_METHODS.includes(shippingMethod()) && !selectedStore) {
+    errEl.textContent = "請點選「選擇門市」挑選取件門市。";
+    errEl.classList.remove("hidden");
+    return;
+  }
   const btn = document.getElementById("submit-btn");
   btn.disabled = true;
   btn.classList.add("opacity-75");
@@ -285,8 +346,7 @@ document.getElementById("checkout-form").addEventListener("submit", async (e) =>
         phone: document.getElementById("phone").value.trim(),
         email: document.getElementById("email").value.trim(),
         address: document.getElementById("address").value.trim(),
-        store_name: document.getElementById("storeName").value.trim(),
-        store_id: document.getElementById("storeId").value.trim(),
+        store: selectedStore,
       },
       shipping_method: shippingMethod(),
       payment_method: paymentMethod(),

@@ -107,6 +107,10 @@ def mock_pay():
     """開發用:模擬付款成功,將訂單標記為已付款。上線前移除。"""
     data = request.get_json(silent=True) or {}
     order_no = data.get("order_no", "")
+    # 先確認訂單存在,查無訂單就不要對資料庫下無謂的 UPDATE。
+    if not db.query_one("SELECT id FROM orders WHERE order_no = %s", (order_no,)):
+        return jsonify({"error": "查無訂單"}), 404
+
     db.execute(
         "UPDATE orders SET payment_status = 'paid', status = 'paid', paid_at = NOW()"
         " WHERE order_no = %s AND payment_status = 'unpaid'",

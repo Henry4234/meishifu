@@ -79,6 +79,7 @@ SCHEMA = [
         address VARCHAR(255) DEFAULT '',
         store_id VARCHAR(20) DEFAULT '',
         store_name VARCHAR(60) DEFAULT '',
+        store_address VARCHAR(120) DEFAULT '',
         shipping_method ENUM('delivery','fami','unimart','pickup') DEFAULT 'delivery',
         payment_method ENUM('credit','transfer') DEFAULT 'credit',
         payment_status ENUM('unpaid','paid','refunded') DEFAULT 'unpaid',
@@ -166,6 +167,7 @@ ORDER_COLUMNS = [
     ("email", "VARCHAR(120) NOT NULL DEFAULT '' AFTER phone"),
     ("store_id", "VARCHAR(20) DEFAULT '' AFTER address"),        # 超商店號
     ("store_name", "VARCHAR(60) DEFAULT '' AFTER store_id"),     # 超商門市名稱
+    ("store_address", "VARCHAR(120) DEFAULT '' AFTER store_name"),  # 電子地圖回傳的門市地址
     ("trade_no", "VARCHAR(32) DEFAULT '' AFTER note"),           # 綠界交易編號
     ("payment_info", "VARCHAR(255) DEFAULT '' AFTER trade_no"),  # ATM 虛擬帳號等資訊
     ("paid_at", "DATETIME DEFAULT NULL AFTER payment_info"),
