@@ -412,9 +412,14 @@
             </span>
             <span class="font-label-md text-on-surface-variant">${p.is_active ? "上架" : "下架"}</span>
           </label>
-          <button class="flex items-center gap-1 text-primary hover:text-on-primary-fixed-variant font-label-md" onclick="openPkgModal(${p.id})">
-            <span class="material-symbols-outlined text-[18px]">edit</span> 編輯
-          </button>
+          <div class="flex items-center gap-md">
+            <button class="flex items-center gap-1 text-primary hover:text-on-primary-fixed-variant font-label-md" onclick="openPkgModal(${p.id})">
+              <span class="material-symbols-outlined text-[18px]">edit</span> 編輯
+            </button>
+            ${p.is_active
+              ? '<button class="flex items-center gap-1 text-outline-variant cursor-not-allowed font-label-md" disabled title="請先下架再刪除"><span class="material-symbols-outlined text-[18px]">delete</span> 刪除</button>'
+              : `<button class="flex items-center gap-1 text-on-surface-variant hover:text-error font-label-md" onclick="deletePackage(${p.id})"><span class="material-symbols-outlined text-[18px]">delete</span> 刪除</button>`}
+          </div>
         </div>
       </div>
     </article>`;
@@ -431,6 +436,18 @@
           } catch (err) { adminToast(err.message, true); sw.checked = !sw.checked; }
         });
       });
+    }
+
+    /* 刪除禮盒:後端會再驗一次「已下架」與「沒有未完成訂單」兩個條件 */
+    async function deletePackage(id) {
+      const p = packages.find((x) => x.id === id);
+      const name = p ? p.name : id;
+      if (!confirm(`確定要刪除禮盒「${name}」嗎?\n內容物與分類設定會一併移除,已完成訂單的明細不受影響。`)) return;
+      try {
+        await adminFetch(`/admin/packages/${id}`, { method: "DELETE" });
+        adminToast(`「${name}」已刪除`);
+        loadAll();
+      } catch (err) { adminToast(err.message, true); }
     }
 
     function itemRowHtml(productId, qty) {

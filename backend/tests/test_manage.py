@@ -103,6 +103,93 @@ class ManyCursor:
         self.calls.append((sql, list(rows)))
 
 
+class DeleteCursor:
+    """記錄 db_cursor 內執行的 DELETE,確認刪除範圍正確。"""
+
+    def __init__(self):
+        self.calls = []
+
+    def execute(self, sql, args=None):
+        self.calls.append((sql, args))
+
+
+def _cursor_factory(cursor):
+    """產生可取代 db.db_cursor 的 context manager。"""
+    @contextmanager
+    def factory(commit=False):
+        assert commit is True
+        yield cursor
+
+    return factory
+
+
+def _order_row(payment_status="unpaid", status="pending"):
+    return {"id": 7, "order_no": "MS-7", "customer_name": "王小明",
+            "payment_status": payment_status, "status": status}
+
+
+def test_delete_order_conditions(client, monkeypatch, auth_headers):
+    headers = auth_headers()
+
+    monkeypatch.setattr(db, "query_one", lambda *_args, **_kwargs: None)
+    assert client.delete("/api/admin/orders/7", headers=headers).status_code == 404
+
+    # 已付款且已離開待處理 → 不得刪除
+    monkeypatch.setattr(db, "query_one",
+                        lambda *_a, **_k: _order_row("paid", "shipped"))
+    blocked = client.delete("/api/admin/orders/7", headers=headers)
+    assert blocked.status_code == 400
+    assert blocked.get_json()["status"] == "shipped"
+
+    cursor = DeleteCursor()
+    monkeypatch.setattr(db, "db_cursor", _cursor_factory(cursor))
+
+    # 未付款 (即使已出貨) → 可刪除,明細與主檔都要刪掉
+    monkeypatch.setattr(db, "query_one", lambda *_a, **_k: _order_row("unpaid", "shipped"))
+    unpaid = client.delete("/api/admin/orders/7", headers=headers)
+    assert unpaid.get_json() == {
+        "id": 7, "order_no": "MS-7", "customer_name": "王小明", "deleted": True}
+
+    # 已付款但仍是待處理 → 也放行
+    monkeypatch.setattr(db, "query_one", lambda *_a, **_k: _order_row("paid", "pending"))
+    assert client.delete("/api/admin/orders/7", headers=headers).status_code == 200
+
+    assert [sql.split()[2] for sql, _args in cursor.calls] == [
+        "order_items", "orders", "order_items", "orders"]
+
+
+def test_delete_package_conditions(client, monkeypatch, auth_headers):
+    headers = auth_headers()
+
+    monkeypatch.setattr(db, "query_one", lambda *_args, **_kwargs: None)
+    assert client.delete("/api/admin/packages/5", headers=headers).status_code == 404
+
+    # 仍在上架中 → 擋下
+    monkeypatch.setattr(db, "query_one",
+                        lambda *_a, **_k: {"id": 5, "name": "珍味禮盒", "is_active": 1})
+    active = client.delete("/api/admin/packages/5", headers=headers)
+    assert active.status_code == 400
+    assert "先下架" in active.get_json()["error"]
+
+    # 已下架但還在未完成訂單裡 → 擋下並列出訂單編號
+    monkeypatch.setattr(db, "query_one",
+                        lambda *_a, **_k: {"id": 5, "name": "珍味禮盒", "is_active": 0})
+    monkeypatch.setattr(db, "query", lambda *_a, **_k: [
+        {"order_no": "MS-1", "status": "paid"}, {"order_no": "MS-2", "status": "shipped"}])
+    used = client.delete("/api/admin/packages/5", headers=headers)
+    assert used.status_code == 400
+    assert used.get_json()["blocking_orders"] == ["MS-1", "MS-2"]
+
+    # 已下架且沒有未完成訂單 → 刪除禮盒與兩張關聯表
+    monkeypatch.setattr(db, "query", lambda *_a, **_k: [])
+    cursor = DeleteCursor()
+    monkeypatch.setattr(db, "db_cursor", _cursor_factory(cursor))
+    done = client.delete("/api/admin/packages/5", headers=headers)
+    assert done.get_json() == {"id": 5, "name": "珍味禮盒", "deleted": True}
+    assert [sql.split()[2] for sql, _args in cursor.calls] == [
+        "package_products_map", "package_categories", "package"]
+
+
 def test_replace_helpers(monkeypatch):
     executed = []
     cursor = ManyCursor()

@@ -184,6 +184,9 @@
           <td class="py-sm px-md">${statusBadge(o.status)}</td>
           <td class="py-sm px-md text-right">
             <button class="p-xs text-on-surface-variant hover:text-primary transition-colors" onclick="showDetail(${o.id})" title="查看詳情"><span class="material-symbols-outlined text-[20px]">visibility</span></button>
+            ${canDelete(o)
+              ? `<button class="p-xs text-on-surface-variant hover:text-error transition-colors" onclick="deleteOrder(${o.id}, '${o.order_no}')" title="刪除訂單"><span class="material-symbols-outlined text-[20px]">delete</span></button>`
+              : '<button class="p-xs text-outline-variant cursor-not-allowed" disabled title="已付款且進入處理流程的訂單無法刪除"><span class="material-symbols-outlined text-[20px]">delete</span></button>'}
           </td>
         </tr>`).join("");
         }
@@ -208,6 +211,21 @@
     }
 
     function gotoPage(p) { currentPage = p; loadOrders(); }
+
+    /* 可刪除條件需與後端 delete_order 一致:未付款,或訂單狀態仍是待處理 */
+    function canDelete(o) {
+      return o.payment_status === "unpaid" || o.status === "pending";
+    }
+
+    async function deleteOrder(id, orderNo) {
+      if (!confirm(`確定要刪除訂單 #${orderNo} 嗎?此操作無法復原,訂單明細會一併刪除。`)) return;
+      try {
+        await adminFetch(`/admin/orders/${id}`, { method: "DELETE" });
+        adminToast(`訂單 #${orderNo} 已刪除`);
+        closeModal();
+        loadOrders();
+      } catch (err) { adminToast(err.message, true); }
+    }
 
     async function showDetail(id) {
       try {

@@ -227,6 +227,7 @@ Federation 部署三個 Cloud Run services，不使用長效 GCP JSON key。
 | GET | /api/admin/dashboard | 儀表板統計 |
 | GET/GET/PATCH | /api/admin/orders … /:id/status | 訂單列表/詳情/狀態更新 |
 | GET | /api/admin/orders/updates?since_id= | 新訂單輪詢通知 (後台鈴鐺與 Toast) |
+| DELETE | /api/admin/orders/:id | 刪除訂單 (含明細);僅限未付款或狀態為待處理,否則回 400 |
 | GET/POST/PATCH | /api/admin/materials … /:id | 材料查詢與新增/編輯 (含需求預估與狀態) |
 | DELETE | /api/admin/materials/:id | 刪除材料;仍被配方或禮盒包材使用時回 400 並列出使用處 |
 | POST | /api/admin/materials/:id/purchase | 採購入庫 (更新庫存與最新進價) |
@@ -236,6 +237,7 @@ Federation 部署三個 Cloud Run services，不使用長效 GCP JSON key。
 | POST | /api/admin/packages | 新增禮盒 (multipart,`image` 附檔、`items` JSON 為內容物) |
 | POST | /api/admin/packages/:id/update | 更新禮盒 (multipart,附 `image` 才換圖) |
 | PATCH | /api/admin/packages/:id/active | 上/下架切換 (前台即時生效) |
+| DELETE | /api/admin/packages/:id | 刪除禮盒 (含內容物與分類);須已下架且不在未完成訂單中,否則回 400 並列出訂單編號 |
 | GET/POST/PATCH | /api/admin/users … /:id | 用戶權限管理 (僅 super) |
 | GET | /api/admin/finance?period=month\|quarter\|year | 財務統計 (營收/成本/淨利/近4週) |
 
