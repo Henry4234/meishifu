@@ -17,6 +17,7 @@ from routes.admin import ROLE_LABELS, login_required, role_required
 manage_bp = Blueprint("manage", __name__)
 
 ACTIVE_ORDER_STATUSES = ("pending", "paid")  # 尚未出貨 → 仍會消耗材料
+UNFINISHED_ORDER_STATUSES = ("pending", "paid", "shipped")  # 尚未結案 → 商品仍在流程中
 
 
 # ---------------------------------------------------------------- 成本計算
@@ -68,6 +69,39 @@ def _material_demand():
     for r in box:
         demand[r["mid"]] = demand.get(r["mid"], 0) + float(r["d"])
     return demand
+
+
+# ---------------------------------------------------------------- 訂單刪除
+@manage_bp.delete("/orders/<int:order_id>")
+@login_required
+def delete_order(order_id):
+    """刪除訂單 (含明細)。
+
+    只允許未付款、或訂單狀態仍是「待處理」的訂單刪除;已收款且已進入
+    出貨流程的訂單必須保留,否則後台與金流端的紀錄會對不起來。
+    """
+    order = db.query_one(
+        "SELECT id, order_no, customer_name, payment_status, status FROM orders"
+        " WHERE id = %s", (order_id,))
+    if not order:
+        return jsonify({"error": "查無訂單"}), 404
+
+    if order["payment_status"] != "unpaid" and order["status"] != "pending":
+        return jsonify({
+            "error": "只有未付款或待處理的訂單可以刪除,此訂單已付款且進入處理流程",
+            "payment_status": order["payment_status"],
+            "status": order["status"],
+        }), 400
+
+    with db.db_cursor(commit=True) as cur:
+        # order_items 已有 ON DELETE CASCADE,這裡明確刪除以相容尚未套用外鍵的資料庫
+        cur.execute("DELETE FROM order_items WHERE order_id = %s", (order_id,))
+        cur.execute("DELETE FROM orders WHERE id = %s", (order_id,))
+
+    return jsonify({
+        "id": order_id, "order_no": order["order_no"],
+        "customer_name": order["customer_name"], "deleted": True,
+    })
 
 
 # ---------------------------------------------------------------- 材料管理
@@ -470,6 +504,48 @@ def update_package(pkg_id):
     _replace_package_categories(
         pkg_id, form.get("secondary_categories"), form.get("category") or existing["category"])
     return jsonify({"id": pkg_id, "updated": True})
+
+
+@manage_bp.delete("/packages/<int:pkg_id>")
+@login_required
+def delete_package(pkg_id):
+    """刪除禮盒 (含內容物與次要分類)。
+
+    兩個條件都要成立:
+    1. 禮盒已下架 — 避免刪掉前台還在賣的商品
+    2. 尚未結案的訂單 (待處理/已付款/已出貨) 都沒有這個禮盒 — 這些訂單還要
+       據此揀貨出貨,商品被刪掉就對不出內容
+
+    已完成/已取消的舊訂單不擋:order_items 存的是下單當下的 package_name 與
+    單價快照,歷史訂單明細不會因為刪除禮盒而消失。
+    """
+    pkg = db.query_one("SELECT id, name, is_active FROM package WHERE id = %s", (pkg_id,))
+    if not pkg:
+        return jsonify({"error": "查無禮盒"}), 404
+    if pkg["is_active"]:
+        return jsonify({"error": f"「{pkg['name']}」仍在上架中,請先下架再刪除"}), 400
+
+    blocking = db.query(
+        "SELECT o.order_no, o.status FROM order_items oi"
+        " JOIN orders o ON o.id = oi.order_id"
+        " WHERE oi.package_id = %s AND o.status IN %s ORDER BY o.id",
+        (pkg_id, UNFINISHED_ORDER_STATUSES))
+    if blocking:
+        order_nos = [r["order_no"] for r in blocking]
+        shown = "、".join(order_nos[:5]) + ("…" if len(order_nos) > 5 else "")
+        return jsonify({
+            "error": f"「{pkg['name']}」還在 {len(order_nos)} 筆未完成訂單中,"
+                     f"請先出貨或取消後再刪除 ({shown})",
+            "blocking_orders": order_nos,
+        }), 400
+
+    with db.db_cursor(commit=True) as cur:
+        # 兩張關聯表已有 ON DELETE CASCADE,明確刪除以相容尚未套用外鍵的資料庫
+        cur.execute("DELETE FROM package_products_map WHERE package_id = %s", (pkg_id,))
+        cur.execute("DELETE FROM package_categories WHERE package_id = %s", (pkg_id,))
+        cur.execute("DELETE FROM package WHERE id = %s", (pkg_id,))
+
+    return jsonify({"id": pkg_id, "name": pkg["name"], "deleted": True})
 
 
 @manage_bp.patch("/packages/<int:pkg_id>/active")
