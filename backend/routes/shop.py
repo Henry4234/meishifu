@@ -122,9 +122,8 @@ PAYMENT_METHODS = ("credit", "transfer")
 EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
-def _shipping_fee(shipping_method: str, subtotal: int) -> int:
-    if subtotal >= config.FREE_SHIPPING_THRESHOLD:
-        return 0
+def _shipping_fee(shipping_method: str) -> int:
+    """運費依配送方式固定收取,不論金額大小皆須付運費。"""
     if shipping_method == "delivery":
         return config.SHIPPING_FEE
     if shipping_method in CVS_METHODS:
@@ -195,7 +194,7 @@ def create_order():
         subtotal += line_total
         order_items.append((pkg["id"], pkg["name"], pkg["price"], qty, line_total))
 
-    shipping_fee = _shipping_fee(shipping_method, subtotal)
+    shipping_fee = _shipping_fee(shipping_method)
     total = subtotal + shipping_fee
 
     # --- 寫入訂單 (單一交易) ---

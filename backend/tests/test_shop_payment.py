@@ -181,11 +181,14 @@ def test_create_order_validations(client, monkeypatch):
 
 
 def test_shipping_fee_rules():
-    assert shop._shipping_fee("delivery", 500) == config.SHIPPING_FEE
-    assert shop._shipping_fee("fami", 500) == config.CVS_SHIPPING_FEE
-    assert shop._shipping_fee("unimart", 500) == config.CVS_SHIPPING_FEE
-    assert shop._shipping_fee("delivery", config.FREE_SHIPPING_THRESHOLD) == 0
-    assert shop._shipping_fee("pickup", 100) == 0
+    """運費固定依配送方式收取,沒有免運門檻。"""
+    assert config.SHIPPING_FEE == 130
+    assert config.CVS_SHIPPING_FEE == 65
+    assert shop._shipping_fee("delivery") == 130
+    assert shop._shipping_fee("fami") == 65
+    assert shop._shipping_fee("unimart") == 65
+    assert shop._shipping_fee("pickup") == 0
+    assert not hasattr(config, "FREE_SHIPPING_THRESHOLD")
 
 
 class OrderCursor:
@@ -256,7 +259,7 @@ def test_create_and_fetch_order(client, monkeypatch):
     assert response.status_code == 201
     assert body["order_no"] == "MS-TEST"
     assert body["subtotal"] == 1000
-    assert body["shipping_fee"] == 120
+    assert body["shipping_fee"] == 130
     assert conn.committed and conn.closed
     assert conn.cur.many
 
@@ -265,7 +268,7 @@ def test_create_and_fetch_order(client, monkeypatch):
     assert checkout["gateway"] == "ecpay"
     assert checkout["action"].endswith("/Cashier/AioCheckOut/V5")
     assert checkout["params"]["MerchantTradeNo"] == "MS-TEST"
-    assert checkout["params"]["TotalAmount"] == "1120"
+    assert checkout["params"]["TotalAmount"] == "1130"
     assert checkout["params"]["ChoosePayment"] == "Credit"
     assert ecpay.verify(checkout["params"])
 
@@ -281,8 +284,8 @@ def test_create_and_fetch_order(client, monkeypatch):
         "payment_status": "unpaid",
         "status": "pending",
         "subtotal": 1000,
-        "shipping_fee": 120,
-        "total": 1120,
+        "shipping_fee": 130,
+        "total": 1130,
         "created_at": datetime(2026, 8, 22, 10, 30),
     }
     monkeypatch.setattr(db, "query_one", lambda *_args, **_kwargs: order.copy())
