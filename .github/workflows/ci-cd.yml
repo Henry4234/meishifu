@@ -330,7 +330,7 @@ jobs:
         run: bash deploy/gcp/smoke-test-ci.sh
 
       - name: Roll back Cloud Run traffic after failure
-        if: ${{ failure() && steps.previous_revisions.outcome == 'success' }}
+        if: ${{ failure() && steps.previous_revisions.outcome == 'success' && steps.deploy_services.outputs.services_may_have_changed == 'true' }}
         env:
           PROJECT_ID: meishifu
           REGION: asia-east1

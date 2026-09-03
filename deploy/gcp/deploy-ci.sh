@@ -83,6 +83,13 @@ docker push "${IMAGE_BASE}/frontend:${TAG}"
 docker push "${IMAGE_BASE}/admin:${TAG}"
 docker push "${IMAGE_BASE}/backend:${TAG}"
 
+# Only request a rollback after the first Cloud Run mutation is about to start.
+# Build/auth failures happen before this point and must not pin traffic to an old
+# revision merely because the workflow captured it for a possible rollback.
+if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
+  echo "services_may_have_changed=true" >> "${GITHUB_OUTPUT}"
+fi
+
 "${GCLOUD_BIN}" run deploy meishifu-backend \
   --project "${PROJECT_ID}" \
   --region "${REGION}" \
@@ -111,5 +118,16 @@ docker push "${IMAGE_BASE}/backend:${TAG}"
   --port 8080 \
   --ingress all \
   --quiet
+
+# A rollback replaces Cloud Run's default LATEST target with an explicit revision.
+# Subsequent deploys preserve that traffic pattern, so explicitly restore LATEST
+# after all new revisions are ready and before the workflow runs smoke tests.
+for service in meishifu-backend meishifu-frontend meishifu-admin; do
+  "${GCLOUD_BIN}" run services update-traffic "${service}" \
+    --project "${PROJECT_ID}" \
+    --region "${REGION}" \
+    --to-latest \
+    --quiet
+done
 
 echo "Deployed ${TAG} to ${PROJECT_ID}/${REGION}."
