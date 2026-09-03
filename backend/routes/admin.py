@@ -8,6 +8,7 @@ from werkzeug.security import check_password_hash
 
 import config
 import db
+import mail_tasks
 
 admin_bp = Blueprint("admin", __name__)
 
@@ -222,9 +223,27 @@ def update_status(order_id):
     status = data.get("status", "")
     if status not in STATUS_LABELS:
         return jsonify({"error": "狀態不正確"}), 400
-    if not db.query_one("SELECT id FROM orders WHERE id = %s", (order_id,)):
+    order = db.query_one(
+        "SELECT id, order_no, customer_name, email, phone, address, store_id,"
+        " store_name, store_address, shipping_method, status FROM orders WHERE id = %s",
+        (order_id,),
+    )
+    if not order:
         return jsonify({"error": "查無訂單"}), 404
+    if order["status"] == status:
+        return jsonify({
+            "id": order_id,
+            "status": status,
+            "status_label": STATUS_LABELS[status],
+            "notification": "unchanged",
+        })
     db.execute("UPDATE orders SET status = %s WHERE id = %s", (status, order_id))
     if status == "paid":
         db.execute("UPDATE orders SET payment_status = 'paid' WHERE id = %s", (order_id,))
-    return jsonify({"id": order_id, "status": status, "status_label": STATUS_LABELS[status]})
+    notification = mail_tasks.dispatch_order_status({**order, "status": status})
+    return jsonify({
+        "id": order_id,
+        "status": status,
+        "status_label": STATUS_LABELS[status],
+        "notification": notification,
+    })

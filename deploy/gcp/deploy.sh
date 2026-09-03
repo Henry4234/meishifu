@@ -20,6 +20,9 @@ ECPAY_LOGISTICS_ENV="${ECPAY_LOGISTICS_ENV:-stage}"
 ECPAY_LOGISTICS_MERCHANT_ID="${ECPAY_LOGISTICS_MERCHANT_ID:-2000933}"
 ECPAY_HASH_KEY_SECRET="${ECPAY_HASH_KEY_SECRET:-meishifu-ecpay-hash-key}"
 ECPAY_HASH_IV_SECRET="${ECPAY_HASH_IV_SECRET:-meishifu-ecpay-hash-iv}"
+RESEND_API_KEY_SECRET="${RESEND_API_KEY_SECRET:-meishifu-resend-api-key}"
+MAIL_TASKS_QUEUE="${MAIL_TASKS_QUEUE:-meishifu-mail}"
+MAIL_FROM="${MAIL_FROM:-orders@order.meishifu.org}"
 PAY_NOTIFY_URL="${PAY_NOTIFY_URL:-${BACKEND_BASE_URL}/api/payment/notify}"
 PAY_RESULT_URL="${PAY_RESULT_URL:-${BACKEND_BASE_URL}/api/payment/result}"
 PAY_INFO_URL="${PAY_INFO_URL:-${BACKEND_BASE_URL}/api/payment/notify}"
@@ -63,7 +66,8 @@ GCLOUD_BIN="${GCLOUD_BIN:-gcloud}"
   artifactregistry.googleapis.com \
   secretmanager.googleapis.com \
   iam.googleapis.com \
-  storage.googleapis.com
+  storage.googleapis.com \
+  cloudtasks.googleapis.com
 
 if ! "${GCLOUD_BIN}" artifacts repositories describe "${REPOSITORY}" --location "${REGION}" >/dev/null 2>&1; then
   "${GCLOUD_BIN}" artifacts repositories create "${REPOSITORY}" \
@@ -76,6 +80,19 @@ if ! "${GCLOUD_BIN}" iam service-accounts describe "${RUNTIME_SERVICE_ACCOUNT}" 
   "${GCLOUD_BIN}" iam service-accounts create meishifu-runtime \
     --display-name "Meishifu Cloud Run runtime"
 fi
+
+if ! "${GCLOUD_BIN}" tasks queues describe "${MAIL_TASKS_QUEUE}" \
+  --location "${REGION}" >/dev/null 2>&1; then
+  "${GCLOUD_BIN}" tasks queues create "${MAIL_TASKS_QUEUE}" \
+    --location "${REGION}" \
+    --max-attempts 8 \
+    --min-backoff 10s \
+    --max-backoff 600s
+fi
+
+"${GCLOUD_BIN}" projects add-iam-policy-binding "${PROJECT_ID}" \
+  --member "serviceAccount:${RUNTIME_SERVICE_ACCOUNT}" \
+  --role roles/cloudtasks.enqueuer >/dev/null
 
 PROJECT_NUMBER="$("${GCLOUD_BIN}" projects describe "${PROJECT_ID}" --format='value(projectNumber)')"
 UPLOAD_BUCKET="${UPLOAD_BUCKET:-${PROJECT_ID}-uploads-${PROJECT_NUMBER}}"
@@ -159,14 +176,15 @@ fi
 # 正式 ECPay 金鑰只在明確提供新值時新增版本；日常手動部署沿用既有版本。
 provision_external_secret "${ECPAY_HASH_KEY_SECRET}" "${ECPAY_HASH_KEY:-}"
 provision_external_secret "${ECPAY_HASH_IV_SECRET}" "${ECPAY_HASH_IV:-}"
+provision_external_secret "${RESEND_API_KEY_SECRET}" "${RESEND_API_KEY:-}"
 
 "${GCLOUD_BIN}" builds submit . \
   --config deploy/cloudbuild.yaml \
   --substitutions "_REGION=${REGION},_TAG=${TAG}"
 
 IMAGE_BASE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}"
-BACKEND_ENV_VARS="DB_HOST=127.0.0.1,DB_PORT=13306,DB_NAME=${DB_NAME:-meishifu},DB_POOL_SIZE=${DB_POOL_SIZE:-4},UPLOAD_BUCKET=${UPLOAD_BUCKET},BACKEND_BASE_URL=${BACKEND_BASE_URL},FRONTEND_BASE_URL=${FRONTEND_BASE_URL},ECPAY_ENV=${ECPAY_ENV},ECPAY_MERCHANT_ID=${ECPAY_MERCHANT_ID},ECPAY_LOGISTICS_ENV=${ECPAY_LOGISTICS_ENV},ECPAY_LOGISTICS_MERCHANT_ID=${ECPAY_LOGISTICS_MERCHANT_ID},PAY_NOTIFY_URL=${PAY_NOTIFY_URL},PAY_RESULT_URL=${PAY_RESULT_URL},PAY_INFO_URL=${PAY_INFO_URL},PAY_RETURN_URL=${PAY_RETURN_URL},ECPAY_MAP_REPLY_URL=${ECPAY_MAP_REPLY_URL},TAILSCALE_ENABLED=true,TAILSCALE_DB_HOST=${TAILSCALE_DB_HOST},TAILSCALE_DB_PORT=${TAILSCALE_DB_PORT},TAILSCALE_HOSTNAME=meishifu-backend"
-BACKEND_SECRETS="DB_AC=meishifu-db-user:latest,DB_PW=meishifu-db-password:latest,SECRET_KEY=meishifu-secret-key:latest,ECPAY_HASH_KEY=${ECPAY_HASH_KEY_SECRET}:latest,ECPAY_HASH_IV=${ECPAY_HASH_IV_SECRET}:latest,TAILSCALE_AUTHKEY=${TAILSCALE_SECRET}:latest"
+BACKEND_ENV_VARS="DB_HOST=127.0.0.1,DB_PORT=13306,DB_NAME=${DB_NAME:-meishifu},DB_POOL_SIZE=${DB_POOL_SIZE:-4},UPLOAD_BUCKET=${UPLOAD_BUCKET},BACKEND_BASE_URL=${BACKEND_BASE_URL},FRONTEND_BASE_URL=${FRONTEND_BASE_URL},ECPAY_ENV=${ECPAY_ENV},ECPAY_MERCHANT_ID=${ECPAY_MERCHANT_ID},ECPAY_LOGISTICS_ENV=${ECPAY_LOGISTICS_ENV},ECPAY_LOGISTICS_MERCHANT_ID=${ECPAY_LOGISTICS_MERCHANT_ID},PAY_NOTIFY_URL=${PAY_NOTIFY_URL},PAY_RESULT_URL=${PAY_RESULT_URL},PAY_INFO_URL=${PAY_INFO_URL},PAY_RETURN_URL=${PAY_RETURN_URL},ECPAY_MAP_REPLY_URL=${ECPAY_MAP_REPLY_URL},SMTP_HOST=smtp.resend.com,SMTP_PORT=587,SMTP_USER=resend,SMTP_USE_TLS=true,SMTP_USE_SSL=false,MAIL_FROM=${MAIL_FROM},MAIL_FROM_NAME=美師傅 meishifu,MAIL_TASKS_PROJECT=${PROJECT_ID},MAIL_TASKS_LOCATION=${REGION},MAIL_TASKS_QUEUE=${MAIL_TASKS_QUEUE},TAILSCALE_ENABLED=true,TAILSCALE_DB_HOST=${TAILSCALE_DB_HOST},TAILSCALE_DB_PORT=${TAILSCALE_DB_PORT},TAILSCALE_HOSTNAME=meishifu-backend"
+BACKEND_SECRETS="DB_AC=meishifu-db-user:latest,DB_PW=meishifu-db-password:latest,SECRET_KEY=meishifu-secret-key:latest,ECPAY_HASH_KEY=${ECPAY_HASH_KEY_SECRET}:latest,ECPAY_HASH_IV=${ECPAY_HASH_IV_SECRET}:latest,SMTP_PASSWORD=${RESEND_API_KEY_SECRET}:latest,TAILSCALE_AUTHKEY=${TAILSCALE_SECRET}:latest"
 
 "${GCLOUD_BIN}" run deploy meishifu-backend \
   --image "${IMAGE_BASE}/backend:${TAG}" \

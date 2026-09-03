@@ -3,6 +3,7 @@ from datetime import date, datetime
 from werkzeug.security import generate_password_hash
 
 import db
+import mail_tasks
 
 
 def test_login_variants(client, monkeypatch):
@@ -113,11 +114,43 @@ def test_order_management(client, monkeypatch, auth_headers):
     assert client.patch("/api/admin/orders/7/status", json={"status": "bad"}, headers=auth_headers()).status_code == 400
 
     executed = []
-    monkeypatch.setattr(db, "query_one", lambda *_args, **_kwargs: {"id": 7})
+    status_order = {
+        "id": 7,
+        "order_no": "MS1",
+        "customer_name": "王",
+        "email": "buyer@example.com",
+        "phone": "0912",
+        "address": "台北",
+        "store_id": "",
+        "store_name": "",
+        "store_address": "",
+        "shipping_method": "delivery",
+        "status": "pending",
+    }
+    dispatched = []
+    monkeypatch.setattr(db, "query_one", lambda *_args, **_kwargs: status_order.copy())
     monkeypatch.setattr(db, "execute", lambda *args, **_kwargs: executed.append(args))
+    monkeypatch.setattr(
+        mail_tasks, "dispatch_order_status", lambda value: dispatched.append(value) or "skipped")
     updated = client.patch("/api/admin/orders/7/status", json={"status": "paid"}, headers=auth_headers())
     assert updated.status_code == 200
     assert len(executed) == 2
+    assert updated.get_json()["notification"] == "skipped"
+    assert dispatched[0]["status"] == "paid"
+
+    executed.clear()
+    dispatched.clear()
+    shipped = client.patch(
+        "/api/admin/orders/7/status", json={"status": "shipped"}, headers=auth_headers())
+    assert shipped.get_json()["notification"] == "skipped"
+    assert len(executed) == 1
+    assert dispatched[0]["status"] == "shipped"
+
+    monkeypatch.setattr(
+        db, "query_one", lambda *_args, **_kwargs: {**status_order, "status": "shipped"})
+    unchanged = client.patch(
+        "/api/admin/orders/7/status", json={"status": "shipped"}, headers=auth_headers())
+    assert unchanged.get_json()["notification"] == "unchanged"
 
 
 def test_order_updates_notifies_admin(client, monkeypatch, auth_headers):

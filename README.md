@@ -35,7 +35,8 @@ website/
    ├─ db.py              # PyMySQL 連線輔助
    ├─ init_db.py         # 建表 + 種子資料 (可重複執行,含欄位遷移)
    ├─ ecpay.py           # 綠界付款參數/CheckMacValue、電子地圖參數與門市簽章
-   ├─ mailer.py          # 訂單成立 / 付款成功通知信 (SMTP)
+   ├─ mailer.py          # 訂單成立 / 訂單狀態通知信 (Resend SMTP)
+   ├─ mail_tasks.py      # Cloud Tasks 寄信佇列與簽章
    └─ routes/
       ├─ shop.py         # 商品查詢、建立訂單 (價格以 DB 為準)
       ├─ admin.py        # 登入 (JWT + 角色)、儀表板、訂單管理
@@ -350,10 +351,32 @@ package (禮盒 = 上架販售的商品) ← order_items 指向這裡
 
 ## 訂單通知信
 
-`backend/mailer.py` 在訂單成立與付款成功時各寄出一封 HTML 通知信到顧客填寫的 Email
-(結帳表單的 Email 為必填,並存入 `orders.email`)。寄信在背景執行緒進行,SMTP 失敗
-只記錄 log,不會讓下單 API 失敗。`.env` 未設定 `SMTP_HOST` 時不會真的寄信,只把信件
-內容印在後端 log,方便本機開發確認。
+`backend/mailer.py` 使用 Resend SMTP 寄送交易通知信到顧客結帳時填寫的 Email
+(結帳表單的 Email 為必填,並存入 `orders.email`)：
+
+- 訂單成立：建立訂單後寄送。
+- 已出貨、已完成、已取消：管理員實際變更訂單狀態後寄送。
+- 已付款：不寄送，由綠界金流寄送付款確認信，避免顧客收到重複通知。
+- 待處理或重複儲存相同狀態：不寄送。
+
+正式環境以 `orders@order.meishifu.org` 為寄件者。Resend 網域需先完成以下 DNS
+驗證：`resend._domainkey.order.meishifu.org` 的 DKIM TXT，以及
+`send.order.meishifu.org` 的 SPF TXT / feedback MX。建議另設定
+`_dmarc.order.meishifu.org` 的 DMARC TXT。
+
+本機可將 `.env.example` 的 SMTP 區段複製到 `.env`，並只在本機 `.env` 填入
+`SMTP_PASSWORD`。API key 不得提交到 Git。正式環境的 API key 存在 GCP Secret
+Manager 的 `meishifu-resend-api-key`，Cloud Run 只把它掛載成 `SMTP_PASSWORD`。
+
+後台狀態通知由 `backend/mail_tasks.py` 建立 `meishifu-mail` Cloud Tasks 任務；任務
+呼叫 `/api/internal/mail/order-status`，以 `SECRET_KEY` 的 HMAC 驗證請求。SMTP 暫時
+失敗時端點會回 503，讓 Cloud Tasks 自動重試；每個事件同時帶 Resend idempotency
+key，避免重試造成重複信件。未設定 Cloud Tasks 的本機環境則同步寄送。
+
+首次建立 GCP 基礎設施時，將 Resend key 放在 shell 環境的 `RESEND_API_KEY` 後執行
+`deploy/gcp/deploy.sh`。腳本會建立／更新 Secret Manager、啟用 Cloud Tasks、建立
+`meishifu-mail` 佇列並授予後端 service account enqueuer 權限；日常 CI 部署只引用
+既有 secret，不會讀取或輸出 key。
 
 ## 介面動畫
 

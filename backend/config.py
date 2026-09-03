@@ -94,9 +94,21 @@ MAIL = {
     "password": os.getenv("SMTP_PASSWORD", ""),
     "use_tls": os.getenv("SMTP_USE_TLS", "true").lower() in ("1", "true", "yes"),
     "use_ssl": os.getenv("SMTP_USE_SSL", "").lower() in ("1", "true", "yes"),
-    "sender": os.getenv("MAIL_FROM", os.getenv("SMTP_USER", "no-reply@meishifu.org")),
+    "sender": os.getenv(
+        "MAIL_FROM", os.getenv("SMTP_USER", "orders@order.meishifu.org")),
     "sender_name": os.getenv("MAIL_FROM_NAME", "美師傅 meishifu"),
+    "reply_to": os.getenv("MAIL_REPLY_TO", ""),
     "timeout": int(os.getenv("SMTP_TIMEOUT", "15")),
+}
+
+# Cloud Tasks 讓訂單狀態信在 HTTP 回應結束後仍可可靠執行與自動重試。
+# 未設定 queue 時會同步寄送，方便本機開發與測試。
+MAIL_TASKS = {
+    "project": os.getenv("MAIL_TASKS_PROJECT", ""),
+    "location": os.getenv("MAIL_TASKS_LOCATION", "asia-east1"),
+    "queue": os.getenv("MAIL_TASKS_QUEUE", ""),
+    "url": os.getenv(
+        "MAIL_TASKS_URL", BACKEND_BASE_URL + "/api/internal/mail/order-status"),
 }
 
 # 運費一律收取,不設免運門檻

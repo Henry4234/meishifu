@@ -15,6 +15,7 @@ from routes.admin import admin_bp
 from routes.logistics import logistics_bp
 from routes.manage import manage_bp
 from routes.payment import payment_bp
+from routes.notifications import notifications_bp
 
 
 def create_app():
@@ -28,6 +29,7 @@ def create_app():
     app.register_blueprint(manage_bp, url_prefix="/api/admin")
     app.register_blueprint(payment_bp, url_prefix="/api/payment")
     app.register_blueprint(logistics_bp, url_prefix="/api/logistics")
+    app.register_blueprint(notifications_bp, url_prefix="/api/internal")
 
     @app.get("/api/health")
     def health():
