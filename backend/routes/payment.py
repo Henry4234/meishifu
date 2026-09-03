@@ -14,7 +14,6 @@ from flask import Blueprint, jsonify, redirect, request
 import config
 import db
 import ecpay
-import mailer
 
 payment_bp = Blueprint("payment", __name__)
 log = logging.getLogger(__name__)
@@ -61,7 +60,6 @@ def _mark_paid(order_no: str, data: dict) -> str:
             "UPDATE orders SET payment_status = 'paid', status = 'paid',"
             " trade_no = %s, paid_at = NOW() WHERE order_no = %s AND payment_status <> 'paid'",
             (trade_no, order_no))
-        mailer.send_payment_success(order)
     return "paid"
 
 

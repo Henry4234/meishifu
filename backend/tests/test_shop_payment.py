@@ -6,6 +6,7 @@ import config
 import db
 import ecpay
 import mailer
+import pytest
 from routes import shop
 
 
@@ -455,11 +456,13 @@ def test_payment_notify(client, monkeypatch):
              "email": "buyer@example.com", "total": 900, "payment_status": "unpaid"}
     monkeypatch.setattr(db, "query_one", lambda *_args, **_kwargs: order.copy())
     monkeypatch.setattr(db, "execute", lambda sql, args=None: calls.append((sql, args)) or 1)
-    monkeypatch.setattr(mailer, "send_async", lambda *args: None)
+    sent = []
+    monkeypatch.setattr(mailer, "_send", lambda *args, **kwargs: sent.append((args, kwargs)))
 
     ok = client.post("/api/payment/notify", data=_signed())
     assert ok.get_data(as_text=True) == "1|OK"
     assert "payment_status = 'paid'" in calls[0][0]
+    assert not sent  # 付款確認由綠界寄送，不重複寄信
 
     # 驗章失敗 / 金額不符 / 綠界回報失敗,都不得標記為已付款
     calls.clear()
@@ -527,7 +530,10 @@ def test_mailer_renders_and_skips_without_smtp(monkeypatch):
     }
     html = mailer.render_order_created(order, [(1, "禮盒", 500, 2, 1000)])
     assert "MS1" in html and "全家店到店" in html and "NT$ 1,070" in html
-    assert "MS1" in mailer.render_payment_success(order)
+    assert "MS1" in mailer.render_order_status(order, "shipped")
+    assert "已取消" in mailer.render_order_status(order, "cancelled")
+    with pytest.raises(ValueError):
+        mailer.render_order_status(order, "paid")
 
     monkeypatch.setitem(config.MAIL, "host", "")
     mailer._send("buyer@example.com", "主旨", "<p>內容</p>")  # 不會真的連線
@@ -535,7 +541,8 @@ def test_mailer_renders_and_skips_without_smtp(monkeypatch):
     sent = []
     monkeypatch.setattr(mailer, "_send", lambda *args: sent.append(args))
     mailer.send_order_created({**order, "email": ""}, [])   # 沒有 email 就不寄
-    mailer.send_payment_success({**order, "email": ""})
+    assert not mailer.send_order_status({**order, "email": ""}, "shipped", "event")
+    assert not mailer.send_order_status(order, "paid", "event")
     assert not sent
 
 
@@ -572,10 +579,12 @@ def test_mailer_sends_through_smtp(monkeypatch):
     monkeypatch.setattr(mailer.smtplib, "SMTP", FakeSMTP)
     for key, value in {"host": "smtp.example.com", "port": 587, "user": "bot@example.com",
                        "password": "secret", "use_tls": True, "use_ssl": False,
-                       "sender": "bot@example.com", "sender_name": "美師傅 meishifu"}.items():
+                       "sender": "bot@example.com", "sender_name": "美師傅 meishifu",
+                       "reply_to": "service@example.com"}.items():
         monkeypatch.setitem(config.MAIL, key, value)
 
-    mailer._send("buyer@example.com", "訂單成立", "<p>謝謝</p>")
+    assert mailer._send(
+        "buyer@example.com", "訂單成立", "<p>謝謝</p>", idempotency_key="order/event")
     smtp = FakeSMTP.instances[0]
     assert smtp.host == "smtp.example.com" and smtp.port == 587
     assert smtp.calls == ["starttls", ("login", "bot@example.com", "secret"), "send", "quit"]
@@ -584,6 +593,8 @@ def test_mailer_sends_through_smtp(monkeypatch):
     subject = str(make_header(decode_header(str(smtp.message["Subject"]))))
     assert subject == "訂單成立"
     assert "bot@example.com" in str(smtp.message["From"])
+    assert smtp.message["Reply-To"] == "service@example.com"
+    assert smtp.message["Resend-Idempotency-Key"] == "order/event"
 
     # send_async 失敗時只記 log,不會往外拋
     monkeypatch.setattr(mailer, "_send", lambda *_args: (_ for _ in ()).throw(OSError("smtp down")))
