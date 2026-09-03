@@ -311,13 +311,16 @@ package (禮盒 = 上架販售的商品) ← order_items 指向這裡
 - **後台通知**:訂單直接寫入資料庫,後台各頁透過 `admin.js` 每 30 秒輪詢
   `/api/admin/orders/updates`,有新訂單時跳出 Toast 並在頁首鈴鐺顯示未讀數量。
 
-配送與運費 (滿 NT$2,000 免運):
+配送與運費 (運費一律收取,無免運門檻):
 
 | 配送方式 | 代碼 | 綠界物流子類型 | 運費 | 收件欄位 |
 |---|---|---|---|---|
-| 宅配到府 | `delivery` | — | NT$120 | 收件地址 |
-| 全家店到店 | `fami` | `FAMIC2C` | NT$70 | 由電子地圖選店 |
-| 7-11 交貨便 | `unimart` | `UNIMARTC2C` | NT$70 | 由電子地圖選店 |
+| 宅配到府 | `delivery` | — | NT$130 | 收件地址 |
+| 全家店到店 | `fami` | `FAMIC2C` | NT$65 | 由電子地圖選店 |
+| 7-11 交貨便 | `unimart` | `UNIMARTC2C` | NT$65 | 由電子地圖選店 |
+
+> 金額定義在 `backend/config.py` 的 `SHIPPING_FEE` / `CVS_SHIPPING_FEE`;
+> 前台 `cart.html` 的 `SHIPPING_FEES` 僅供即時顯示,實際金額一律由後端重算。
 
 ## 店到店選店 (綠界電子地圖)
 

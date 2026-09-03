@@ -15,7 +15,7 @@
 <div class="mt-4 flex flex-row items-center justify-between p-4 bg-surface-container-low rounded-lg">
 <div class="flex flex-row items-center gap-2">
 <span class="material-symbols-outlined text-primary">local_shipping</span>
-<span class="font-body-md text-body-md text-on-surface">滿 NT$ 2,000 享免運費</span>
+<span class="font-body-md text-body-md text-on-surface">運費:宅配到府 NT$ 130,超商店到店 NT$ 65</span>
 </div>
 </div>
 </div>
@@ -204,9 +204,9 @@ function renderCart() {
   updateTotals();
 }
 
-/* 運費規則須與後端 config.py 一致 (後端會以資料庫價格重新計算,此處僅供顯示) */
-const FREE_SHIPPING_THRESHOLD = 2000;
-const SHIPPING_FEES = { delivery: 120, fami: 70, unimart: 70 };
+/* 運費規則須與後端 config.py 一致 (後端會以資料庫價格重新計算,此處僅供顯示)。
+   運費一律收取,沒有免運門檻。 */
+const SHIPPING_FEES = { delivery: 130, fami: 65, unimart: 65 };
 const CVS_METHODS = ["fami", "unimart"];
 const STORE_HINTS = {
   fami: "將開啟綠界門市地圖,選擇取件的全家門市後會自動帶回。",
@@ -278,9 +278,8 @@ window.addEventListener("message", (event) => {
 function updateTotals() {
   const cart = getCart();
   const subtotal = cart.reduce((s, i) => s + i.price * i.quantity, 0);
-  const fee = subtotal > 0 && subtotal < FREE_SHIPPING_THRESHOLD
-    ? (SHIPPING_FEES[shippingMethod()] || 0)
-    : 0;
+  // 購物車是空的就不顯示運費,其餘一律依配送方式計費
+  const fee = subtotal > 0 ? (SHIPPING_FEES[shippingMethod()] || 0) : 0;
   document.getElementById("subtotal").textContent = formatPrice(subtotal);
   document.getElementById("shipping-fee").textContent = formatPrice(fee);
   document.getElementById("total").textContent = formatPrice(subtotal + fee);

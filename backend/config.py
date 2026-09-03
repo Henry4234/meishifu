@@ -99,9 +99,9 @@ MAIL = {
     "timeout": int(os.getenv("SMTP_TIMEOUT", "15")),
 }
 
-FREE_SHIPPING_THRESHOLD = 2000
-SHIPPING_FEE = 120          # 宅配運費
-CVS_SHIPPING_FEE = 70       # 超商店到店運費 (全家 / 7-11 交貨便)
+# 運費一律收取,不設免運門檻
+SHIPPING_FEE = 130          # 宅配運費
+CVS_SHIPPING_FEE = 65       # 超商店到店運費 (全家 / 7-11 交貨便)
 
 # 配送方式代碼 → 顯示名稱 (前後台與通知信共用)
 SHIPPING_LABELS = {
