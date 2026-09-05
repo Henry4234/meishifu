@@ -266,3 +266,109 @@ test("watcher starts only when logged in and survives API errors", async () => {
   assert.notEqual(timer, null);
   clearInterval(timer);
 });
+
+/* ---------- 待出貨統計 ---------- */
+const FF_IDS = {
+  packages: "ff-packages",
+  products: "ff-products",
+  summary: "ff-summary",
+  totalPackages: "ff-total-packages",
+  totalProducts: "ff-total-products",
+};
+
+function buildFulfillmentSlots() {
+  const slots = {};
+  Object.values(FF_IDS).forEach((id) => {
+    const el = fakeElement("div");
+    el.innerHTML = "";
+    elements.set(id, el);
+    slots[id] = el;
+  });
+  return slots;
+}
+
+const SAMPLE_FULFILLMENT = {
+  statuses: ["pending", "paid"],
+  orders: 3,
+  packages: [
+    { package_id: 1, name: "蛋黃酥禮盒", spec: "6入", image: "", is_active: true,
+      quantity: 5, pending_quantity: 2, paid_quantity: 3 },
+    { package_id: 2, name: "停售禮盒", spec: "", image: "", is_active: false,
+      quantity: 1, pending_quantity: 0, paid_quantity: 1 },
+  ],
+  products: [
+    { product_id: 3, name: "紅豆蛋黃酥", unit: "顆", quantity: 30 },
+    { product_id: 4, name: "堅果塔", unit: "個", quantity: 2.5 },
+  ],
+  total_packages: 6,
+  total_products: 32.5,
+};
+
+test("fulfillmentQty keeps integers clean and rounds fractions", () => {
+  assert.equal(admin.fulfillmentQty(30), "30");
+  assert.equal(admin.fulfillmentQty(2.5), "2.5");
+  assert.equal(admin.fulfillmentQty(2.567), "2.57");
+});
+
+test("renderFulfillment fills packages, products and totals", () => {
+  const slots = buildFulfillmentSlots();
+  admin.renderFulfillment(SAMPLE_FULFILLMENT, FF_IDS);
+
+  const pkgHtml = slots["ff-packages"].innerHTML;
+  assert.match(pkgHtml, /蛋黃酥禮盒/);
+  assert.match(pkgHtml, /6入/);
+  assert.match(pkgHtml, /待處理 2/);
+  assert.match(pkgHtml, /已付款 3/);
+  assert.match(pkgHtml, /已下架/);              // 停售禮盒要標示出來
+
+  const prodHtml = slots["ff-products"].innerHTML;
+  assert.match(prodHtml, /紅豆蛋黃酥/);
+  assert.match(prodHtml, /顆/);
+  assert.match(prodHtml, /2\.5/);
+
+  assert.match(slots["ff-summary"].textContent, /3 筆待出貨訂單/);
+  assert.match(slots["ff-summary"].textContent, /共 6 盒/);
+  assert.equal(slots["ff-total-packages"].textContent, 6);
+  assert.equal(slots["ff-total-products"].textContent, "32.5");
+});
+
+test("renderFulfillment shows tailored empty states", () => {
+  const slots = buildFulfillmentSlots();
+  admin.renderFulfillment(
+    { statuses: [], orders: 0, packages: [], products: [], total_packages: 0, total_products: 0 },
+    FF_IDS);
+  assert.match(slots["ff-packages"].innerHTML, /目前沒有待出貨的訂單/);
+  assert.match(slots["ff-products"].innerHTML, /目前沒有待製作的產品/);
+  assert.equal(slots["ff-summary"].textContent, "沒有待出貨的訂單");
+
+  // 有禮盒但沒設定內容物 → 換算不出單一產品,要說明原因而不是顯示「沒有」
+  admin.renderFulfillment(
+    { ...SAMPLE_FULFILLMENT, products: [], total_products: 0 }, FF_IDS);
+  assert.match(slots["ff-products"].innerHTML, /尚未設定內容物/);
+});
+
+test("renderFulfillment ignores ids that are absent on the page", () => {
+  elements.clear();
+  elements.set("ff-packages", Object.assign(fakeElement("div"), { innerHTML: "" }));
+  // 其餘欄位不存在時不應拋錯 (兩個頁面的區塊組成可以不同)
+  admin.renderFulfillment(SAMPLE_FULFILLMENT, FF_IDS);
+  assert.match(elements.get("ff-packages").innerHTML, /蛋黃酥禮盒/);
+});
+
+test("loadFulfillment fetches the shared endpoint and reports failures", async () => {
+  const slots = buildFulfillmentSlots();
+  localStorage.setItem(admin.TOKEN_KEY, "jwt");
+  const urls = [];
+  global.fetch = async (url) => {
+    urls.push(url);
+    return { ok: true, status: 200, json: async () => SAMPLE_FULFILLMENT };
+  };
+  const data = await admin.loadFulfillment(FF_IDS);
+  assert.equal(urls[0], "/api/admin/fulfillment");
+  assert.equal(data.total_packages, 6);
+  assert.match(slots["ff-packages"].innerHTML, /蛋黃酥禮盒/);
+
+  global.fetch = async () => ({ ok: false, status: 500, json: async () => ({ error: "壞掉了" }) });
+  assert.equal(await admin.loadFulfillment(FF_IDS), null);
+  assert.match(slots["ff-summary"].textContent, /統計載入失敗.*壞掉了/);
+});

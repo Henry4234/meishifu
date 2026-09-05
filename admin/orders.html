@@ -149,6 +149,37 @@
             <div class="flex gap-xs" id="pagination"></div>
           </div>
         </section>
+        <!-- 待出貨統計:狀態為待處理 / 已付款的訂單要備哪些貨 -->
+        <section
+          class="bg-surface-container-lowest rounded-xl shadow-[0_4px_24px_rgba(157,129,137,0.06)] p-md flex flex-col gap-md">
+          <div class="flex items-end justify-between flex-wrap gap-sm">
+            <div>
+              <h2 class="font-headline-md text-headline-md text-on-surface">待出貨統計</h2>
+              <p class="font-caption text-caption text-on-surface-variant mt-xs">
+                僅計入狀態為「待處理」或「已付款」的訂單,與材料需求的計算口徑相同。
+              </p>
+            </div>
+            <span class="font-label-md text-label-md text-on-surface-variant" id="ff-summary">載入中...</span>
+          </div>
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-gutter">
+            <div class="bg-surface-container-low rounded-lg p-md">
+              <div class="flex items-center justify-between mb-xs">
+                <h3 class="font-label-md text-label-md text-primary uppercase tracking-wider">待出貨禮盒</h3>
+                <span class="font-caption text-caption text-on-surface-variant">共 <span class="font-label-md text-on-surface"
+                    id="ff-total-packages">0</span> 盒</span>
+              </div>
+              <div class="divide-y divide-surface-variant" id="ff-packages"></div>
+            </div>
+            <div class="bg-surface-container-low rounded-lg p-md">
+              <div class="flex items-center justify-between mb-xs">
+                <h3 class="font-label-md text-label-md text-secondary uppercase tracking-wider">需製作單一產品</h3>
+                <span class="font-caption text-caption text-on-surface-variant">共 <span class="font-label-md text-on-surface"
+                    id="ff-total-products">0</span> 個</span>
+              </div>
+              <div class="divide-y divide-surface-variant" id="ff-products"></div>
+            </div>
+          </div>
+        </section>
       </div>
     </main>
   </div>
@@ -284,6 +315,16 @@
     fillAdminName();
 
     let currentPage = 1;
+
+    /* 待出貨統計:訂單狀態一有變動就要跟著重算 */
+    const FULFILLMENT_IDS = {
+      packages: "ff-packages",
+      products: "ff-products",
+      summary: "ff-summary",
+      totalPackages: "ff-total-packages",
+      totalProducts: "ff-total-products",
+    };
+    const refreshFulfillment = () => loadFulfillment(FULFILLMENT_IDS);
 
     async function loadOrders() {
       const q = document.getElementById("search-input").value.trim();
@@ -499,6 +540,7 @@
         adminToast(`訂單 #${created.order_no} 已建立 (${formatPrice(created.total)})`);
         currentPage = 1;
         loadOrders();
+        refreshFulfillment();
       } catch (err) {
         errEl.textContent = err.message;
         errEl.classList.remove("hidden");
@@ -529,6 +571,7 @@
         adminToast(`訂單 #${orderNo} 已刪除`);
         closeModal();
         loadOrders();
+        refreshFulfillment();
       } catch (err) { adminToast(err.message, true); }
     }
 
@@ -588,6 +631,7 @@
         });
         closeModal();
         loadOrders();
+        refreshFulfillment();
       } catch (err) { adminToast(err.message, true); }
     }
 
@@ -609,10 +653,11 @@
     });
 
     // 有新訂單進來時自動重整清單;正在看訂單頁就不必留著未讀標記
-    window.onNewOrders = () => { loadOrders(); clearUnseenOrders(); };
+    window.onNewOrders = () => { loadOrders(); refreshFulfillment(); clearUnseenOrders(); };
     window.addEventListener("load", clearUnseenOrders);
 
     loadOrders();
+    refreshFulfillment();
   </script>
 </body>
 
