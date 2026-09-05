@@ -27,3 +27,6 @@ backend/.venv/
 # Google GitHub Actions 產生的短效憑證檔
 gha-creds-*.json
 deploy/cloudflare/worker-configuration.d.ts
+
+# SQL 檔案一律不進版控，避免資料庫傾印 (mysqldump) 或含資料的腳本外洩
+*.sql

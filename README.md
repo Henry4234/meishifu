@@ -226,7 +226,8 @@ Federation 部署三個 Cloud Run services，不使用長效 GCP JSON key。
 |---|---|---|
 | POST | /api/admin/login | 登入,回傳 JWT (含角色) |
 | GET | /api/admin/dashboard | 儀表板統計 |
-| GET/GET/PATCH | /api/admin/orders … /:id/status | 訂單列表/詳情/狀態更新 |
+| GET/GET/PATCH | /api/admin/orders … /:id/status | 訂單列表/詳情/狀態更新 (列表可用 `status` / `source` / `q` 篩選) |
+| POST | /api/admin/orders | 手動建立內部訂單 (`source=manual`,不經綠界;限訂單管理員/超管) |
 | GET | /api/admin/orders/updates?since_id= | 新訂單輪詢通知 (後台鈴鐺與 Toast) |
 | DELETE | /api/admin/orders/:id | 刪除訂單 (含明細);僅限未付款或狀態為待處理,否則回 400 |
 | GET/POST/PATCH | /api/admin/materials … /:id | 材料查詢與新增/編輯 (含需求預估與狀態) |
@@ -262,9 +263,25 @@ package (禮盒 = 上架販售的商品) ← order_items 指向這裡
 | product_materials | 單品配方 BOM:每 1 單位產品的材料用量 |
 | materials | 材料主檔 (分類/批號/單位/庫存/安全水位/單位成本/效期) |
 | material_logs | 材料異動紀錄 (採購/消耗/盤點調整) |
-| orders / order_items | 訂單主檔與明細 (`package_id` / `package_name` 為下單當下快照;含 email、超商門市 store_id/store_name/store_address、綠界 trade_no / payment_info / paid_at) |
+| orders / order_items | 訂單主檔與明細 (`package_id` / `package_name` 為下單當下快照;含 `source` 訂單來源、email、超商門市 store_id/store_name/store_address、綠界 trade_no / payment_info / paid_at) |
 | admins | 後台用戶 (密碼 hash、email、角色、啟停用、最後登入) |
 | schema_migrations | 已套用的結構遷移紀錄,讓 init_db.py 可重複執行 |
+
+### 正式環境的結構更新
+
+開發 / 測試環境直接跑 `uv run python init_db.py` 即可 (內含欄位遷移,可重複執行)。
+若正式環境不方便執行 Python，`deploy/sql/` 底下有等效的純 SQL 腳本，
+內容與 `init_db.py` 的遷移一致、同樣可重複執行:
+
+| 腳本 | 內容 |
+|---|---|
+| `2026-09-05-orders-manual-and-store-address.sql` | orders 新增 `store_address`、`source`;`payment_method` 補 `cash`;`phone` 補 `DEFAULT ''` (並向下相容更舊的綠界欄位) |
+
+```bash
+# 執行前先備份
+mysqldump -h <host> -P <port> -u <user> -p <db> orders order_items > backup_orders.sql
+mysql -h <host> -P <port> -u <user> -p <db> < deploy/sql/2026-09-05-orders-manual-and-store-address.sql
+```
 
 ### 成本與財務計算
 
@@ -311,6 +328,41 @@ package (禮盒 = 上架販售的商品) ← order_items 指向這裡
   `orders.payment_info`;實際入帳後才會再送一次 `RtnCode=1` 標記已付款。
 - **後台通知**:訂單直接寫入資料庫,後台各頁透過 `admin.js` 每 30 秒輪詢
   `/api/admin/orders/updates`,有新訂單時跳出 Toast 並在頁首鈴鐺顯示未讀數量。
+
+## 後台手動建立訂單 (內部訂單)
+
+市集現場、親友訂購、批發自取這類不經網站結帳的訂單,可在後台「訂單管理 →
+新增訂單」直接建立。這種訂單 `source = 'manual'`,與綠界金流完全無關:
+不產生付款參數、不寄任何通知信、也不會觸發後台的新訂單鈴鐺。
+
+它與線上訂單共用同一張 `orders` 表,因此**自動**進入既有的兩項統計:
+
+| 統計 | 依據 | 手動訂單的影響 |
+|---|---|---|
+| 材料需求 (`_material_demand`) | 狀態為 `pending` / `paid` 的訂單 | 建單時選「待處理/已付款」才會預留材料;選「已出貨/已完成」則不列入 |
+| 成本與營收 (`/api/admin/finance`) | 狀態非 `cancelled` 的訂單 | 一律計入,建單畫面也會即時試算材料成本 |
+
+> 假設:手動訂單同時計入營收與成本。實際有收款的內部訂單本來就是營收,
+> 且若只計成本不計營收,毛利率會被壓低而失真。若只想看線上營收,
+> 在 `routes/manage.py` 的財務查詢加上 `AND source = 'online'` 即可。
+
+**電話與 Email 為選填**,原因見下節。訂單編號前綴為 `MO`(線上為 `MS`),
+一眼可辨且不會與綠界的 MerchantTradeNo 撞號。單價預設帶入禮盒售價,
+批發或優惠價可於建單畫面直接修改。
+
+### 為什麼不用假的電話 / Email,也不改成 NULL
+
+`orders.phone` / `orders.email` 維持 `NOT NULL DEFAULT ''`,手動訂單存**空字串**:
+
+- **不填假資料**:`mail_tasks.dispatch_order_status()` 是以「email 為空」來判斷跳過寄信的。
+  填入 `manual@example.com` 這類假信箱反而會讓系統真的去寄,產生退信並傷害寄件網域信譽;
+  假電話也可能被當成真的聯絡方式。
+- **不改成 NULL**:`email` 本來就是 `NOT NULL DEFAULT ''`,空字串一樣能存進去 ——
+  這個約束從來沒有真的保證過「線上訂單一定有聯絡方式」。改成 NULL 只會多出
+  NULL 與 `''` 兩種空值狀態,讓每個查詢與樣板都要處理兩次。
+- **真正的把關在 API 層**:線上訂單由 `routes/shop.py` 強制電話必填、Email 需通過格式檢查,
+  這才是「線上客戶一定追蹤得到」的保證;手動訂單則由 `routes/manage.py` 放行留空。
+  資料庫欄位沒有被放寬,線上下單的必填規則完全不受影響。
 
 配送與運費 (運費一律收取,無免運門檻):
 

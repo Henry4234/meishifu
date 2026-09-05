@@ -126,6 +126,13 @@ SHIPPING_LABELS = {
 PAYMENT_LABELS = {
     "credit": "信用卡",
     "transfer": "銀行 ATM 轉帳",
+    "cash": "現金",            # 後台手動建立的內部訂單專用
+}
+
+# 訂單來源:online = 前台經綠界成立;manual = 後台手動建立
+SOURCE_LABELS = {
+    "online": "線上訂單",
+    "manual": "手動建立",
 }
 
 # 商品分類 (前後台共用的標準清單,順序即前台側邊選單的顯示順序)

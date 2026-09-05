@@ -78,6 +78,7 @@ def test_order_management(client, monkeypatch, auth_headers):
         lambda *_args, **_kwargs: [{
             "id": 7,
             "order_no": "MS1",
+            "source": "online",
             "customer_name": "王",
             "phone": "0912",
             "total": 500,
@@ -92,11 +93,22 @@ def test_order_management(client, monkeypatch, auth_headers):
         "/api/admin/orders?status=pending&q=MS&page=1&per_page=5",
         headers=auth_headers(),
     )
-    assert listing.get_json()["orders"][0]["status_label"] == "待處理"
+    listed = listing.get_json()["orders"][0]
+    assert listed["status_label"] == "待處理"
+    assert listed["source_label"] == "線上訂單"
+
+    # 來源篩選會加進 WHERE,不合法的值直接忽略
+    captured = {}
+    monkeypatch.setattr(db, "query", lambda sql, args=None: captured.update(sql=sql, args=args) or [])
+    client.get("/api/admin/orders?source=manual", headers=auth_headers())
+    assert "source = %s" in captured["sql"] and "manual" in captured["args"]
+    client.get("/api/admin/orders?source=bogus", headers=auth_headers())
+    assert "source = %s" not in captured["sql"]
 
     order = {
         "id": 7,
         "status": "paid",
+        "source": "manual",
         "shipping_method": "fami",
         "payment_method": "transfer",
         "created_at": datetime(2026, 8, 22, 9, 0),
@@ -107,6 +119,7 @@ def test_order_management(client, monkeypatch, auth_headers):
     assert detail["status_label"] == "已付款"
     assert detail["shipping_label"] == "全家店到店"
     assert detail["payment_label"] == "銀行 ATM 轉帳"
+    assert detail["source_label"] == "手動建立"
     assert detail["paid_at"] == "2026-08-22 09:30"
 
     monkeypatch.setattr(db, "query_one", lambda *_args, **_kwargs: None)
@@ -172,6 +185,12 @@ def test_order_updates_notifies_admin(client, monkeypatch, auth_headers):
     assert body["latest_id"] == 9
     assert body["pending_orders"] == 2
     assert body["new_orders"][0]["created_at"] == "2026-09-01 12:00"
+
+    # 後台自己手動建立的訂單不該再跳通知
+    captured = {}
+    monkeypatch.setattr(db, "query", lambda sql, args=None: captured.update(sql=sql) or [])
+    client.get("/api/admin/orders/updates?since_id=8", headers=auth_headers())
+    assert "source = 'online'" in captured["sql"]
 
     # since_id 非數字時視為 0,不應噴 500
     assert client.get("/api/admin/orders/updates?since_id=x", headers=auth_headers()).status_code == 200

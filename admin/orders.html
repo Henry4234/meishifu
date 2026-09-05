@@ -87,6 +87,11 @@
               <h1 class="font-headline-lg text-headline-lg text-on-surface mb-xs">訂單管理</h1>
               <p class="font-body-md text-body-md text-on-surface-variant">查看與管理所有顧客訂單。</p>
             </div>
+            <button
+              class="flex items-center gap-xs bg-primary text-on-primary font-label-md text-label-md px-md py-sm rounded-full hover:shadow-md transition-all"
+              id="new-order-btn" type="button">
+              <span class="material-symbols-outlined text-[20px]">add</span>新增訂單
+            </button>
           </div>
         </section>
         <section
@@ -110,6 +115,13 @@
                 <option value="completed">已完成</option>
                 <option value="cancelled">已取消</option>
               </select>
+              <select
+                class="bg-surface-container px-md py-sm rounded-full font-label-md text-label-md text-on-surface-variant focus:outline-none cursor-pointer"
+                id="source-filter">
+                <option value="">所有來源</option>
+                <option value="online">線上訂單</option>
+                <option value="manual">手動建立</option>
+              </select>
             </div>
             <div class="flex items-center gap-xs font-caption text-caption text-on-surface-variant" id="order-count">
             </div>
@@ -119,6 +131,7 @@
               <thead>
                 <tr class="bg-surface-container font-label-md text-label-md text-on-surface-variant">
                   <th class="py-sm px-md font-semibold rounded-tl-lg rounded-bl-lg">訂單編號</th>
+                  <th class="py-sm px-md font-semibold">來源</th>
                   <th class="py-sm px-md font-semibold">下單日期</th>
                   <th class="py-sm px-md font-semibold">訂購人</th>
                   <th class="py-sm px-md font-semibold">總金額</th>
@@ -151,6 +164,121 @@
       <div id="detail-body"></div>
     </div>
   </div>
+  <!-- 手動建立訂單 Modal (不經綠界金流,僅計入成本與材料需求) -->
+  <div class="hidden fixed inset-0 z-[100] bg-inverse-surface/40 backdrop-blur-sm items-center justify-center p-md"
+    id="create-modal">
+    <div class="bg-surface rounded-2xl shadow-2xl max-w-2xl w-full max-h-[88vh] overflow-y-auto p-lg space-y-md">
+      <div class="flex justify-between items-start">
+        <div>
+          <h2 class="font-headline-md text-headline-md text-on-surface">新增訂單</h2>
+          <p class="font-caption text-caption text-on-surface-variant mt-xs">
+            後台手動建立的內部訂單,不經綠界金流、不寄送通知信,但會計入成本統計與材料需求。
+          </p>
+        </div>
+        <button class="text-on-surface-variant hover:text-error p-1" onclick="closeCreateModal()" type="button"><span
+            class="material-symbols-outlined">close</span></button>
+      </div>
+      <form class="space-y-md" id="create-form">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-sm">
+          <label class="flex flex-col gap-xs">
+            <span class="font-label-md text-label-md text-on-surface">訂購人姓名 <span class="text-error">*</span></span>
+            <input class="bg-surface-container px-md py-sm rounded-lg focus:outline-none focus:ring-1 focus:ring-primary"
+              id="f-name" maxlength="100" placeholder="王小明" required type="text" />
+          </label>
+          <label class="flex flex-col gap-xs">
+            <span class="font-label-md text-label-md text-on-surface">電話 <span
+                class="text-on-surface-variant font-normal">(選填)</span></span>
+            <input class="bg-surface-container px-md py-sm rounded-lg focus:outline-none focus:ring-1 focus:ring-primary"
+              id="f-phone" maxlength="30" placeholder="自取可留空" type="tel" />
+          </label>
+        </div>
+        <label class="flex flex-col gap-xs">
+          <span class="font-label-md text-label-md text-on-surface">Email <span
+              class="text-on-surface-variant font-normal">(選填)</span></span>
+          <input class="bg-surface-container px-md py-sm rounded-lg focus:outline-none focus:ring-1 focus:ring-primary"
+            id="f-email" maxlength="120" placeholder="留空則不會寄送任何通知信" type="email" />
+        </label>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-sm">
+          <label class="flex flex-col gap-xs">
+            <span class="font-label-md text-label-md text-on-surface">配送方式</span>
+            <select class="bg-surface-container px-md py-sm rounded-lg focus:outline-none cursor-pointer"
+              id="f-shipping">
+              <option value="pickup">自行取貨</option>
+              <option value="delivery">親自配送</option>
+            </select>
+          </label>
+          <label class="flex flex-col gap-xs">
+            <span class="font-label-md text-label-md text-on-surface">付款方式</span>
+            <select class="bg-surface-container px-md py-sm rounded-lg focus:outline-none cursor-pointer" id="f-payment">
+              <option value="cash">現金</option>
+              <option value="transfer">銀行轉帳</option>
+              <option value="credit">信用卡</option>
+            </select>
+          </label>
+          <label class="flex flex-col gap-xs">
+            <span class="font-label-md text-label-md text-on-surface">訂單狀態</span>
+            <select class="bg-surface-container px-md py-sm rounded-lg focus:outline-none cursor-pointer" id="f-status">
+              <option value="pending">待處理</option>
+              <option value="paid">已付款</option>
+              <option value="shipped">已出貨</option>
+              <option value="completed">已完成</option>
+            </select>
+          </label>
+        </div>
+        <p class="font-caption text-caption text-on-surface-variant -mt-xs" id="status-hint"></p>
+        <label class="hidden flex-col gap-xs" id="address-row">
+          <span class="font-label-md text-label-md text-on-surface">配送地址 <span class="text-error">*</span></span>
+          <input class="bg-surface-container px-md py-sm rounded-lg focus:outline-none focus:ring-1 focus:ring-primary"
+            id="f-address" maxlength="255" placeholder="台北市信義區..." type="text" />
+        </label>
+        <div class="space-y-sm">
+          <div class="flex items-center justify-between">
+            <span class="font-label-md text-label-md text-on-surface">商品明細 <span class="text-error">*</span></span>
+            <button
+              class="flex items-center gap-xs text-primary font-label-md text-label-md hover:underline"
+              id="add-item-btn" type="button"><span class="material-symbols-outlined text-[18px]">add</span>加入禮盒</button>
+          </div>
+          <div class="space-y-xs" id="item-rows"></div>
+          <p class="font-caption text-caption text-on-surface-variant">單價預設帶入售價,批發或優惠價可直接修改。</p>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-sm">
+          <label class="flex flex-col gap-xs">
+            <span class="font-label-md text-label-md text-on-surface">運費</span>
+            <input class="bg-surface-container px-md py-sm rounded-lg focus:outline-none focus:ring-1 focus:ring-primary"
+              id="f-shipping-fee" min="0" max="99999" type="number" value="0" />
+          </label>
+          <label class="flex items-end gap-xs pb-sm">
+            <input class="w-5 h-5 accent-primary cursor-pointer" id="f-paid" type="checkbox" checked />
+            <span class="font-label-md text-label-md text-on-surface">已收款</span>
+          </label>
+        </div>
+        <label class="flex flex-col gap-xs">
+          <span class="font-label-md text-label-md text-on-surface">備註</span>
+          <input class="bg-surface-container px-md py-sm rounded-lg focus:outline-none focus:ring-1 focus:ring-primary"
+            id="f-note" maxlength="255" placeholder="例:中秋市集現場販售" type="text" />
+        </label>
+        <div class="bg-surface-container-low rounded-lg p-md space-y-xs font-body-md text-body-md">
+          <div class="flex justify-between"><span class="text-on-surface-variant">小計</span><span id="sum-subtotal">NT$
+              0</span></div>
+          <div class="flex justify-between"><span class="text-on-surface-variant">運費</span><span id="sum-shipping">NT$
+              0</span></div>
+          <div class="flex justify-between"><span class="text-on-surface-variant">預估材料成本</span><span
+              id="sum-cost">NT$ 0</span></div>
+          <div class="flex justify-between border-t border-surface-variant pt-xs font-headline-md text-headline-md">
+            <span>總計</span><span class="text-primary" id="sum-total">NT$ 0</span>
+          </div>
+        </div>
+        <p class="hidden font-body-md text-error" id="create-error"></p>
+        <div class="flex justify-end gap-sm pt-xs">
+          <button class="px-md py-sm rounded-full font-label-md text-label-md hover:bg-surface-container-high"
+            onclick="closeCreateModal()" type="button">取消</button>
+          <button
+            class="bg-primary text-on-primary font-label-md text-label-md px-lg py-sm rounded-full hover:shadow-md transition-all disabled:opacity-60"
+            id="create-submit" type="submit">建立訂單</button>
+        </div>
+      </form>
+    </div>
+  </div>
   <script>
     requireLogin();
     fillAdminName();
@@ -160,18 +288,21 @@
     async function loadOrders() {
       const q = document.getElementById("search-input").value.trim();
       const status = document.getElementById("status-filter").value;
+      const source = document.getElementById("source-filter").value;
       const params = new URLSearchParams({ page: currentPage, per_page: 10 });
       if (q) params.set("q", q);
       if (status) params.set("status", status);
+      if (source) params.set("source", source);
       try {
         const d = await adminFetch("/admin/orders?" + params);
         const tbody = document.getElementById("order-tbody");
         if (d.orders.length === 0) {
-          tbody.innerHTML = '<tr><td class="py-md px-md text-on-surface-variant" colspan="7">查無訂單</td></tr>';
+          tbody.innerHTML = '<tr><td class="py-md px-md text-on-surface-variant" colspan="8">查無訂單</td></tr>';
         } else {
           tbody.innerHTML = d.orders.map((o) => `
         <tr class="hover:bg-surface-container-low transition-colors group">
           <td class="py-sm px-md font-display text-primary font-bold">#${o.order_no}</td>
+          <td class="py-sm px-md">${sourceBadge(o.source, o.source_label)}</td>
           <td class="py-sm px-md text-on-surface-variant">${o.created_at}</td>
           <td class="py-sm px-md">
             <span class="inline-flex items-center gap-xs">
@@ -212,6 +343,180 @@
 
     function gotoPage(p) { currentPage = p; loadOrders(); }
 
+    function sourceBadge(source, label) {
+      const manual = source === "manual";
+      const cls = manual
+        ? "bg-tertiary-fixed text-on-tertiary-fixed-variant"
+        : "bg-surface-container-high text-on-surface-variant";
+      return `<span class="inline-flex items-center px-2 py-1 rounded-full ${cls} font-caption text-caption">${label || source || "-"}</span>`;
+    }
+
+    /* ---------- 手動建立訂單 ----------
+       禮盒清單與建立訂單都經由後台 API,前端不直接碰資料庫。 */
+    let packageOptions = [];   // [{id, name, spec, price, cost}]
+    let itemRowSeq = 0;
+
+    async function ensurePackages() {
+      if (packageOptions.length) return packageOptions;
+      const d = await adminFetch("/admin/packages");
+      packageOptions = d.packages
+        .filter((p) => p.is_active)
+        .map((p) => ({ id: p.id, name: p.name, spec: p.spec || "", price: p.price, cost: p.cost || 0 }));
+      return packageOptions;
+    }
+
+    function addItemRow() {
+      if (!packageOptions.length) return;
+      const id = ++itemRowSeq;
+      const row = document.createElement("div");
+      row.className = "item-row grid grid-cols-12 gap-xs items-center";
+      row.dataset.rowId = id;
+      row.innerHTML = `
+        <select class="item-package col-span-6 bg-surface-container px-sm py-sm rounded-lg focus:outline-none cursor-pointer text-body-md">
+          ${packageOptions.map((p) => `<option value="${p.id}">${p.name}${p.spec ? " / " + p.spec : ""}</option>`).join("")}
+        </select>
+        <input class="item-qty col-span-2 bg-surface-container px-sm py-sm rounded-lg focus:outline-none text-body-md" type="number" min="1" max="999" value="1" title="數量" />
+        <input class="item-price col-span-3 bg-surface-container px-sm py-sm rounded-lg focus:outline-none text-body-md" type="number" min="0" max="999999" title="單價" />
+        <button class="item-remove col-span-1 text-on-surface-variant hover:text-error" type="button" title="移除"><span class="material-symbols-outlined text-[20px] pointer-events-none">close</span></button>`;
+      document.getElementById("item-rows").appendChild(row);
+
+      const select = row.querySelector(".item-package");
+      const price = row.querySelector(".item-price");
+      price.value = packageOptions[0].price;
+      select.addEventListener("change", () => {
+        const pkg = packageOptions.find((p) => p.id === Number(select.value));
+        if (pkg) price.value = pkg.price;
+        updateCreateTotals();
+      });
+      row.querySelectorAll("input").forEach((el) => el.addEventListener("input", updateCreateTotals));
+      row.querySelector(".item-remove").addEventListener("click", () => {
+        row.remove();
+        updateCreateTotals();
+      });
+      updateCreateTotals();
+    }
+
+    function collectItems() {
+      return [...document.querySelectorAll("#item-rows .item-row")].map((row) => ({
+        package_id: Number(row.querySelector(".item-package").value),
+        quantity: Number(row.querySelector(".item-qty").value),
+        unit_price: Number(row.querySelector(".item-price").value),
+      }));
+    }
+
+    function updateCreateTotals() {
+      const items = collectItems();
+      let subtotal = 0;
+      let cost = 0;
+      items.forEach((i) => {
+        const pkg = packageOptions.find((p) => p.id === i.package_id);
+        subtotal += (i.unit_price || 0) * (i.quantity || 0);
+        cost += (pkg ? pkg.cost : 0) * (i.quantity || 0);
+      });
+      const fee = Number(document.getElementById("f-shipping-fee").value) || 0;
+      document.getElementById("sum-subtotal").textContent = formatPrice(subtotal);
+      document.getElementById("sum-shipping").textContent = formatPrice(fee);
+      document.getElementById("sum-cost").textContent = formatPrice(Math.round(cost));
+      document.getElementById("sum-total").textContent = formatPrice(subtotal + fee);
+    }
+
+    /* 材料需求只計入未出貨的訂單,狀態會影響庫存試算,這裡明講以免誤選 */
+    function updateStatusHint() {
+      const status = document.getElementById("f-status").value;
+      const counts = status === "pending" || status === "paid";
+      document.getElementById("status-hint").textContent = counts
+        ? "此狀態會列入材料需求 (尚未出貨,材料仍需預留)。"
+        : "此狀態不列入材料需求 (已出貨/已完成),但仍計入成本統計。";
+    }
+
+    function syncAddressRow() {
+      const row = document.getElementById("address-row");
+      const needed = document.getElementById("f-shipping").value === "delivery";
+      row.classList.toggle("hidden", !needed);
+      row.classList.toggle("flex", needed);
+    }
+
+    async function openCreateModal() {
+      try {
+        await ensurePackages();
+      } catch (err) {
+        adminToast("無法載入禮盒清單:" + err.message, true);
+        return;
+      }
+      if (!packageOptions.length) {
+        adminToast("目前沒有上架中的禮盒,請先到產品管理新增", true);
+        return;
+      }
+      document.getElementById("create-form").reset();
+      document.getElementById("item-rows").innerHTML = "";
+      document.getElementById("create-error").classList.add("hidden");
+      document.getElementById("f-paid").checked = true;
+      document.getElementById("f-shipping-fee").value = 0;
+      addItemRow();
+      syncAddressRow();
+      updateStatusHint();
+      const modal = document.getElementById("create-modal");
+      modal.classList.remove("hidden");
+      modal.classList.add("flex");
+    }
+
+    function closeCreateModal() {
+      const modal = document.getElementById("create-modal");
+      modal.classList.add("hidden");
+      modal.classList.remove("flex");
+    }
+
+    async function submitCreateOrder(e) {
+      e.preventDefault();
+      const errEl = document.getElementById("create-error");
+      errEl.classList.add("hidden");
+      const items = collectItems();
+      if (!items.length) {
+        errEl.textContent = "請至少加入一項商品。";
+        errEl.classList.remove("hidden");
+        return;
+      }
+      const btn = document.getElementById("create-submit");
+      btn.disabled = true;
+      try {
+        const created = await adminFetch("/admin/orders", {
+          method: "POST",
+          body: JSON.stringify({
+            customer_name: document.getElementById("f-name").value.trim(),
+            phone: document.getElementById("f-phone").value.trim(),
+            email: document.getElementById("f-email").value.trim(),
+            address: document.getElementById("f-address").value.trim(),
+            shipping_method: document.getElementById("f-shipping").value,
+            payment_method: document.getElementById("f-payment").value,
+            status: document.getElementById("f-status").value,
+            paid: document.getElementById("f-paid").checked,
+            shipping_fee: Number(document.getElementById("f-shipping-fee").value) || 0,
+            note: document.getElementById("f-note").value.trim(),
+            items,
+          }),
+        });
+        closeCreateModal();
+        adminToast(`訂單 #${created.order_no} 已建立 (${formatPrice(created.total)})`);
+        currentPage = 1;
+        loadOrders();
+      } catch (err) {
+        errEl.textContent = err.message;
+        errEl.classList.remove("hidden");
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    document.getElementById("new-order-btn").addEventListener("click", openCreateModal);
+    document.getElementById("add-item-btn").addEventListener("click", addItemRow);
+    document.getElementById("create-form").addEventListener("submit", submitCreateOrder);
+    document.getElementById("f-shipping").addEventListener("change", syncAddressRow);
+    document.getElementById("f-status").addEventListener("change", updateStatusHint);
+    document.getElementById("f-shipping-fee").addEventListener("input", updateCreateTotals);
+    document.getElementById("create-modal").addEventListener("click", (e) => {
+      if (e.target === e.currentTarget) closeCreateModal();
+    });
+
     /* 可刪除條件需與後端 delete_order 一致:未付款,或訂單狀態仍是待處理 */
     function canDelete(o) {
       return o.payment_status === "unpaid" || o.status === "pending";
@@ -237,13 +542,15 @@
         document.getElementById("detail-body").innerHTML = `
       <div class="space-y-sm font-body-md text-body-md">
         <div class="flex justify-between"><span class="text-on-surface-variant">訂單編號</span><span class="font-bold text-primary">#${o.order_no}</span></div>
+        <div class="flex justify-between"><span class="text-on-surface-variant">訂單來源</span><span>${sourceBadge(o.source, o.source_label)}</span></div>
         <div class="flex justify-between"><span class="text-on-surface-variant">下單時間</span><span>${o.created_at}</span></div>
         <div class="flex justify-between"><span class="text-on-surface-variant">訂購人</span><span>${o.customer_name}</span></div>
-        <div class="flex justify-between"><span class="text-on-surface-variant">電話</span><span>${o.phone}</span></div>
+        <div class="flex justify-between"><span class="text-on-surface-variant">電話</span><span>${o.phone || "-"}</span></div>
         <div class="flex justify-between"><span class="text-on-surface-variant">Email</span><span>${o.email || "-"}</span></div>
         <div class="flex justify-between gap-md"><span class="text-on-surface-variant shrink-0">${o.store_name ? "取件門市" : "地址"}</span><span class="text-right">${destination}</span></div>
         <div class="flex justify-between"><span class="text-on-surface-variant">配送 / 付款</span><span>${o.shipping_label} / ${o.payment_label}</span></div>
-        <div class="flex justify-between"><span class="text-on-surface-variant">金流交易編號</span><span>${o.trade_no || "-"}</span></div>
+        ${o.source === "manual" ? "" : `<div class="flex justify-between"><span class="text-on-surface-variant">金流交易編號</span><span>${o.trade_no || "-"}</span></div>`}
+        ${o.note ? `<div class="flex justify-between gap-md"><span class="text-on-surface-variant shrink-0">備註</span><span class="text-right">${o.note}</span></div>` : ""}
         ${o.payment_info ? `<div class="flex justify-between gap-md"><span class="text-on-surface-variant shrink-0">繳費資訊</span><span class="text-right">${o.payment_info}</span></div>` : ""}
         ${o.paid_at ? `<div class="flex justify-between"><span class="text-on-surface-variant">付款時間</span><span>${o.paid_at}</span></div>` : ""}
         <div class="h-px bg-surface-variant my-sm"></div>
@@ -296,6 +603,7 @@
       searchTimer = setTimeout(() => { currentPage = 1; loadOrders(); }, 300);
     });
     document.getElementById("status-filter").addEventListener("change", () => { currentPage = 1; loadOrders(); });
+    document.getElementById("source-filter").addEventListener("change", () => { currentPage = 1; loadOrders(); });
     document.getElementById("detail-modal").addEventListener("click", (e) => {
       if (e.target === e.currentTarget) closeModal();
     });
