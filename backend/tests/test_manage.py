@@ -128,6 +128,136 @@ def _order_row(payment_status="unpaid", status="pending"):
             "payment_status": payment_status, "status": status}
 
 
+class ManualOrderCursor:
+    lastrowid = 55
+
+    def __init__(self):
+        self.executed = []
+        self.many = []
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_args):
+        return False
+
+    def execute(self, sql, args):
+        self.executed.append((sql, args))
+
+    def executemany(self, sql, rows):
+        self.many.append((sql, rows))
+
+
+class ManualOrderConnection:
+    def __init__(self):
+        self.cur = ManualOrderCursor()
+        self.committed = False
+        self.closed = False
+
+    def cursor(self):
+        return self.cur
+
+    def commit(self):
+        self.committed = True
+
+    def rollback(self):
+        pass
+
+    def close(self):
+        self.closed = True
+
+
+PACKAGES = {1: {"id": 1, "name": "蛋黃酥禮盒", "price": 650},
+            2: {"id": 2, "name": "堅果塔禮盒", "price": 480}}
+
+
+def _manual_payload(**overrides):
+    payload = {
+        "customer_name": "市集現場",
+        "items": [{"package_id": 1, "quantity": 2}],
+    }
+    payload.update(overrides)
+    return payload
+
+
+def test_create_manual_order(client, monkeypatch, auth_headers):
+    """後台手動建單:寫入 source=manual,電話/Email 可留空,不碰綠界。"""
+    headers = auth_headers()
+    conn = ManualOrderConnection()
+    monkeypatch.setattr(db, "get_connection", lambda: conn)
+    monkeypatch.setattr(
+        db, "query_one",
+        lambda _sql, args=None: PACKAGES.get(args[0]) if args else None)
+    monkeypatch.setattr(manage, "_gen_manual_order_no", lambda: "MO-TEST")
+
+    r = client.post("/api/admin/orders", headers=headers, json=_manual_payload(
+        items=[{"package_id": 1, "quantity": 2}, {"package_id": 2, "quantity": 1}],
+        shipping_fee=50, paid=True, note="中秋市集"))
+    body = r.get_json()
+    assert r.status_code == 201
+    assert body["order_no"] == "MO-TEST"
+    assert body["source"] == "manual"
+    assert body["subtotal"] == 650 * 2 + 480          # 單價取自資料庫
+    assert body["total"] == 1780 + 50
+    assert body["payment_status"] == "paid"
+    assert conn.committed and conn.closed
+
+    sql, args = conn.cur.executed[0]
+    assert "'manual'" in sql
+    assert args[0] == "MO-TEST"
+    assert args[2] == "" and args[3] == ""            # 電話與 Email 留空存空字串
+    assert conn.cur.many[0][1] == [
+        (55, 1, "蛋黃酥禮盒", 650, 2, 1300), (55, 2, "堅果塔禮盒", 480, 1, 480)]
+
+    # 未收款時 paid_at 留空
+    conn2 = ManualOrderConnection()
+    monkeypatch.setattr(db, "get_connection", lambda: conn2)
+    unpaid = client.post("/api/admin/orders", headers=headers,
+                         json=_manual_payload(paid=False))
+    assert unpaid.get_json()["payment_status"] == "unpaid"
+    assert conn2.cur.executed[0][1][-1] is None
+
+    # 單價可覆寫 (批發價)
+    conn3 = ManualOrderConnection()
+    monkeypatch.setattr(db, "get_connection", lambda: conn3)
+    wholesale = client.post("/api/admin/orders", headers=headers, json=_manual_payload(
+        items=[{"package_id": 1, "quantity": 10, "unit_price": 500}]))
+    assert wholesale.get_json()["subtotal"] == 5000
+
+
+def test_create_manual_order_validation(client, monkeypatch, auth_headers):
+    headers = auth_headers()
+    monkeypatch.setattr(
+        db, "query_one",
+        lambda _sql, args=None: PACKAGES.get(args[0]) if args else None)
+
+    def err(payload):
+        r = client.post("/api/admin/orders", headers=headers, json=payload)
+        assert r.status_code == 400
+        return r.get_json()["error"]
+
+    assert "姓名" in err(_manual_payload(customer_name="  "))
+    assert "Email" in err(_manual_payload(email="not-an-email"))
+    assert "配送方式" in err(_manual_payload(shipping_method="fami"))
+    assert "付款方式" in err(_manual_payload(payment_method="atm"))
+    assert "狀態" in err(_manual_payload(status="cancelled"))
+    assert "地址" in err(_manual_payload(shipping_method="delivery"))
+    assert "至少" in err(_manual_payload(items=[]))
+    assert "數量" in err(_manual_payload(items=[{"package_id": 1, "quantity": 0}]))
+    assert "重複" in err(_manual_payload(
+        items=[{"package_id": 1, "quantity": 1}, {"package_id": 1, "quantity": 2}]))
+    assert "格式" in err(_manual_payload(items=[{"package_id": "x", "quantity": 1}]))
+    assert "單價" in err(_manual_payload(
+        items=[{"package_id": 1, "quantity": 1, "unit_price": -5}]))
+    assert "運費" in err(_manual_payload(shipping_fee=-1))
+    assert "不存在" in err(_manual_payload(items=[{"package_id": 99, "quantity": 1}]))
+
+    # 僅訂單管理員 / 超級管理員可建單
+    assert client.post("/api/admin/orders", headers=auth_headers(role="staff"),
+                       json=_manual_payload()).status_code == 403
+    assert client.post("/api/admin/orders", json=_manual_payload()).status_code == 401
+
+
 def test_delete_order_conditions(client, monkeypatch, auth_headers):
     headers = auth_headers()
 

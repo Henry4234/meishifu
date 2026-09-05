@@ -145,12 +145,16 @@ def list_orders():
     page = max(int(request.args.get("page", 1)), 1)
     per_page = min(int(request.args.get("per_page", 10)), 50)
     status = request.args.get("status", "")
+    source = request.args.get("source", "")
     q = (request.args.get("q") or "").strip()
 
     where, args = [], []
     if status and status in STATUS_LABELS:
         where.append("status = %s")
         args.append(status)
+    if source in config.SOURCE_LABELS:
+        where.append("source = %s")
+        args.append(source)
     if q:
         where.append("(order_no LIKE %s OR customer_name LIKE %s OR phone LIKE %s)")
         args += [f"%{q}%"] * 3
@@ -158,7 +162,7 @@ def list_orders():
 
     total = db.query_one(f"SELECT COUNT(*) AS c FROM orders{where_sql}", args)["c"]
     rows = db.query(
-        f"SELECT id, order_no, customer_name, phone, total, status, payment_status,"
+        f"SELECT id, order_no, source, customer_name, phone, total, status, payment_status,"
         f" payment_method, shipping_method, created_at FROM orders{where_sql}"
         f" ORDER BY id DESC LIMIT %s OFFSET %s",
         args + [per_page, (page - 1) * per_page],
@@ -166,6 +170,7 @@ def list_orders():
     for r in rows:
         r["created_at"] = r["created_at"].strftime("%Y-%m-%d %H:%M")
         r["status_label"] = STATUS_LABELS.get(r["status"], r["status"])
+        r["source_label"] = config.SOURCE_LABELS.get(r["source"], r["source"])
     return jsonify({"orders": rows, "total": total, "page": page, "per_page": per_page})
 
 
@@ -175,6 +180,7 @@ def order_updates():
     """前台成立新訂單的輪詢通知:回傳 id 大於 since_id 的訂單。
 
     後台各頁載入 admin.js 後會定期呼叫,有新訂單時跳出提示並更新鈴鐺標記。
+    只通知線上訂單 —— 後台自己手動建立的訂單不需要再回頭提醒管理員。
     """
     try:
         since_id = int(request.args.get("since_id", 0))
@@ -183,7 +189,7 @@ def order_updates():
 
     rows = db.query(
         "SELECT id, order_no, customer_name, total, payment_status, created_at FROM orders"
-        " WHERE id > %s ORDER BY id DESC LIMIT 20", (since_id,))
+        " WHERE id > %s AND source = 'online' ORDER BY id DESC LIMIT 20", (since_id,))
     for r in rows:
         r["created_at"] = r["created_at"].strftime("%Y-%m-%d %H:%M")
 
@@ -205,6 +211,7 @@ def order_detail(order_id):
     if order.get("paid_at"):
         order["paid_at"] = order["paid_at"].strftime("%Y-%m-%d %H:%M")
     order["status_label"] = STATUS_LABELS.get(order["status"], order["status"])
+    order["source_label"] = config.SOURCE_LABELS.get(order.get("source"), order.get("source"))
     order["shipping_label"] = config.SHIPPING_LABELS.get(
         order["shipping_method"], order["shipping_method"])
     order["payment_label"] = config.PAYMENT_LABELS.get(

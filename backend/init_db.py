@@ -73,15 +73,18 @@ SCHEMA = [
     CREATE TABLE IF NOT EXISTS orders (
         id INT AUTO_INCREMENT PRIMARY KEY,
         order_no VARCHAR(32) NOT NULL UNIQUE,
+        source ENUM('online','manual') NOT NULL DEFAULT 'online',
         customer_name VARCHAR(100) NOT NULL,
-        phone VARCHAR(30) NOT NULL,
+        -- 手動建立的內部訂單多為自取/親送,電話與 Email 允許留空 (存空字串,
+        -- 不用 NULL,避免多一種「空值」狀態);線上訂單則由 API 強制必填。
+        phone VARCHAR(30) NOT NULL DEFAULT '',
         email VARCHAR(120) NOT NULL DEFAULT '',
         address VARCHAR(255) DEFAULT '',
         store_id VARCHAR(20) DEFAULT '',
         store_name VARCHAR(60) DEFAULT '',
         store_address VARCHAR(120) DEFAULT '',
         shipping_method ENUM('delivery','fami','unimart','pickup') DEFAULT 'delivery',
-        payment_method ENUM('credit','transfer') DEFAULT 'credit',
+        payment_method ENUM('credit','transfer','cash') DEFAULT 'credit',
         payment_status ENUM('unpaid','paid','refunded') DEFAULT 'unpaid',
         status ENUM('pending','paid','shipped','completed','cancelled') DEFAULT 'pending',
         subtotal INT NOT NULL DEFAULT 0,
@@ -164,6 +167,8 @@ SCHEMA = [
 
 # 綠界金流串接後 orders 需要的欄位 (既有資料庫以 ALTER TABLE 補上)
 ORDER_COLUMNS = [
+    # online = 前台經綠界成立;manual = 後台手動建立的內部訂單
+    ("source", "ENUM('online','manual') NOT NULL DEFAULT 'online' AFTER order_no"),
     ("email", "VARCHAR(120) NOT NULL DEFAULT '' AFTER phone"),
     ("store_id", "VARCHAR(20) DEFAULT '' AFTER address"),        # 超商店號
     ("store_name", "VARCHAR(60) DEFAULT '' AFTER store_id"),     # 超商門市名稱
@@ -369,6 +374,34 @@ def migrate_order_ecpay_columns(cur):
             "ALTER TABLE orders MODIFY COLUMN shipping_method"
             " ENUM('delivery','fami','unimart','pickup') DEFAULT 'delivery'")
         print("  orders.shipping_method 擴充為 宅配 / 全家店到店 / 7-11 交貨便")
+
+
+def migrate_manual_orders(cur):
+    """後台手動建立內部訂單所需的欄位調整。
+
+    1. payment_method 補上 cash (現場收現),供自取 / 親送的內部訂單使用
+    2. phone 補上 DEFAULT ''。欄位維持 NOT NULL:限制留在 API 層依訂單來源判斷
+       (線上訂單必填、內部訂單可留空),資料庫端不會出現 NULL 與 '' 兩種空值。
+    """
+    cur.execute(
+        "SELECT COLUMN_TYPE AS t, COLUMN_DEFAULT AS d FROM information_schema.COLUMNS"
+        " WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'orders'"
+        " AND COLUMN_NAME = 'payment_method'")
+    row = cur.fetchone()
+    if row and "cash" not in row["t"]:
+        cur.execute(
+            "ALTER TABLE orders MODIFY COLUMN payment_method"
+            " ENUM('credit','transfer','cash') DEFAULT 'credit'")
+        print("  orders.payment_method 擴充為 信用卡 / 轉帳 / 現金")
+
+    cur.execute(
+        "SELECT COLUMN_DEFAULT AS d FROM information_schema.COLUMNS"
+        " WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'orders'"
+        " AND COLUMN_NAME = 'phone'")
+    row = cur.fetchone()
+    if row and row["d"] is None:
+        cur.execute("ALTER TABLE orders MODIFY COLUMN phone VARCHAR(30) NOT NULL DEFAULT ''")
+        print("  orders.phone 補上預設值 '' (內部訂單可不填電話)")
 
 
 def migrate_order_items(cur):
@@ -625,6 +658,7 @@ def main():
             print("執行遷移...")
             migrate_admin_columns(cur)
             migrate_order_ecpay_columns(cur)
+            migrate_manual_orders(cur)
             migrate_order_items(cur)
             migrate_products_to_package(cur)
             migrate_bom_precision(cur)

@@ -4,7 +4,9 @@
     材料 unit_cost → 單品成本 Σ(配方用量 × 材料單價)
                    → 禮盒成本 Σ(內容物入數 × 單品成本) + 包材成本
 """
-from datetime import date, timedelta
+import random
+import string
+from datetime import date, datetime, timedelta
 
 from flask import Blueprint, jsonify, request
 from werkzeug.security import generate_password_hash
@@ -13,6 +15,7 @@ import config
 import db
 from image_storage import save_upload
 from routes.admin import ROLE_LABELS, login_required, role_required
+from routes.shop import EMAIL_RE
 
 manage_bp = Blueprint("manage", __name__)
 
@@ -69,6 +72,158 @@ def _material_demand():
     for r in box:
         demand[r["mid"]] = demand.get(r["mid"], 0) + float(r["d"])
     return demand
+
+
+# ---------------------------------------------------------------- 手動建立訂單
+# 後台自行建立的內部訂單 (市集、親友、批發自取…)。不經綠界金流,只是把實際出貨
+# 的禮盒記錄下來,讓它跟線上訂單一樣進入成本統計與材料需求計算。
+MANUAL_SHIPPING_METHODS = ("pickup", "delivery")
+MANUAL_PAYMENT_METHODS = ("cash", "transfer", "credit")
+MANUAL_STATUSES = ("pending", "paid", "shipped", "completed")
+MAX_MANUAL_ITEMS = 50
+
+
+def _gen_manual_order_no():
+    """MO + yyyymmddHHMMSS + 4 碼亂數。前綴與線上訂單 (MS) 區隔,
+    一眼就能分辨,也不會和綠界的 MerchantTradeNo 撞號。"""
+    return "MO" + datetime.now().strftime("%Y%m%d%H%M%S") + \
+        "".join(random.choices(string.digits, k=4))
+
+
+def _manual_items(raw):
+    """驗證並以資料庫的禮盒資料組出訂單明細。回傳 (items, 小計) 或 (None, 錯誤訊息)。"""
+    if not isinstance(raw, list) or not raw:
+        return None, "請至少加入一項商品"
+    if len(raw) > MAX_MANUAL_ITEMS:
+        return None, f"單筆訂單最多 {MAX_MANUAL_ITEMS} 項商品"
+
+    items, subtotal, seen = [], 0, set()
+    for entry in raw:
+        if not isinstance(entry, dict):
+            return None, "商品格式不正確"
+        try:
+            pkg_id = int(entry.get("package_id"))
+            qty = int(entry.get("quantity"))
+        except (TypeError, ValueError):
+            return None, "商品格式不正確"
+        if qty <= 0 or qty > 999:
+            return None, "商品數量須介於 1 至 999"
+        if pkg_id in seen:
+            return None, "同一項禮盒重複出現,請合併數量"
+        seen.add(pkg_id)
+
+        pkg = db.query_one("SELECT id, name, price FROM package WHERE id = %s", (pkg_id,))
+        if not pkg:
+            return None, f"禮盒 {pkg_id} 不存在"
+
+        # 單價預設取資料庫售價;內部訂單常有批發或優惠價,允許改寫
+        if entry.get("unit_price") in (None, ""):
+            unit_price = int(pkg["price"])
+        else:
+            try:
+                unit_price = int(entry["unit_price"])
+            except (TypeError, ValueError):
+                return None, "單價格式不正確"
+            if unit_price < 0 or unit_price > 999999:
+                return None, "單價須介於 0 至 999,999"
+
+        line_total = unit_price * qty
+        subtotal += line_total
+        items.append((pkg["id"], pkg["name"], unit_price, qty, line_total))
+    return items, subtotal
+
+
+@manage_bp.post("/orders")
+@role_required("order")
+def create_manual_order():
+    """後台手動建立內部訂單 (source = manual)。
+
+    與綠界完全無關:不產生付款參數、不寄送訂單通知信。建立後即與線上訂單共用
+    同一張 orders 表,因此會自動計入財務成本統計與材料需求。
+
+    電話與 Email 為選填 (自取/親送常常沒有);線上訂單的必填規則不受影響,
+    仍由 routes/shop.py 把關。
+    """
+    data = request.get_json(silent=True) or {}
+
+    name = (data.get("customer_name") or "").strip()[:100]
+    if not name:
+        return jsonify({"error": "請填寫訂購人姓名"}), 400
+
+    phone = (data.get("phone") or "").strip()[:30]
+    email = (data.get("email") or "").strip()[:120]
+    if email and not EMAIL_RE.match(email):
+        return jsonify({"error": "Email 格式不正確 (可留空)"}), 400
+
+    shipping_method = data.get("shipping_method") or "pickup"
+    payment_method = data.get("payment_method") or "cash"
+    status = data.get("status") or "pending"
+    if shipping_method not in MANUAL_SHIPPING_METHODS:
+        return jsonify({"error": "配送方式不正確"}), 400
+    if payment_method not in MANUAL_PAYMENT_METHODS:
+        return jsonify({"error": "付款方式不正確"}), 400
+    if status not in MANUAL_STATUSES:
+        return jsonify({"error": "訂單狀態不正確"}), 400
+
+    address = (data.get("address") or "").strip()[:255]
+    if shipping_method == "delivery" and not address:
+        return jsonify({"error": "配送到府請填寫地址"}), 400
+
+    items, subtotal = _manual_items(data.get("items"))
+    if items is None:
+        return jsonify({"error": subtotal}), 400
+
+    try:
+        shipping_fee = int(data.get("shipping_fee") or 0)
+    except (TypeError, ValueError):
+        return jsonify({"error": "運費格式不正確"}), 400
+    if shipping_fee < 0 or shipping_fee > 99999:
+        return jsonify({"error": "運費須介於 0 至 99,999"}), 400
+
+    paid = bool(data.get("paid"))
+    payment_status = "paid" if paid else "unpaid"
+    total = subtotal + shipping_fee
+    order_no = _gen_manual_order_no()
+
+    conn = db.get_connection()
+    try:
+        with conn.cursor() as cur:
+            cur.execute(
+                """INSERT INTO orders
+                   (order_no, source, customer_name, phone, email, address,
+                    shipping_method, payment_method, payment_status, status,
+                    subtotal, shipping_fee, total, note, paid_at)
+                   VALUES (%s,'manual',%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+                (order_no, name, phone, email, address,
+                 shipping_method, payment_method, payment_status, status,
+                 subtotal, shipping_fee, total,
+                 (data.get("note") or "").strip()[:255],
+                 datetime.now() if paid else None),
+            )
+            order_id = cur.lastrowid
+            cur.executemany(
+                """INSERT INTO order_items
+                   (order_id, package_id, package_name, unit_price, quantity, subtotal)
+                   VALUES (%s,%s,%s,%s,%s,%s)""",
+                [(order_id, *row) for row in items],
+            )
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+    return jsonify({
+        "id": order_id,
+        "order_no": order_no,
+        "source": "manual",
+        "subtotal": subtotal,
+        "shipping_fee": shipping_fee,
+        "total": total,
+        "status": status,
+        "payment_status": payment_status,
+    }), 201
 
 
 # ---------------------------------------------------------------- 訂單刪除
