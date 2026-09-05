@@ -179,6 +179,42 @@
             </div>
           </div>
         </section>
+        <!-- 待出貨統計:待處理 / 已付款的訂單要備哪些貨、要做幾個單一產品 -->
+        <section class="px-margin-desktop pb-xl">
+          <div class="bg-surface-container-lowest rounded-xl shadow-sm p-md flex flex-col gap-md">
+            <div class="flex items-end justify-between flex-wrap gap-sm">
+              <div>
+                <h2 class="font-headline-md text-headline-md text-on-surface">待出貨統計</h2>
+                <p class="font-caption text-caption text-on-surface-variant mt-xs">
+                  狀態為「待處理」或「已付款」的訂單,與材料需求的計算口徑相同。
+                </p>
+              </div>
+              <div class="flex items-center gap-sm">
+                <span class="font-label-md text-label-md text-on-surface-variant" id="ff-summary">載入中...</span>
+                <a class="font-label-md text-label-md text-primary hover:text-on-surface transition-colors flex items-center"
+                  href="orders.html">訂單管理<span class="material-symbols-outlined text-[16px] ml-1">arrow_forward</span></a>
+              </div>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-gutter">
+              <div class="bg-surface-container-low rounded-lg p-md">
+                <div class="flex items-center justify-between mb-xs">
+                  <h3 class="font-label-md text-label-md text-primary uppercase tracking-wider">待出貨禮盒</h3>
+                  <span class="font-caption text-caption text-on-surface-variant">共 <span
+                      class="font-label-md text-on-surface" id="ff-total-packages">0</span> 盒</span>
+                </div>
+                <div class="divide-y divide-surface-variant" id="ff-packages"></div>
+              </div>
+              <div class="bg-surface-container-low rounded-lg p-md">
+                <div class="flex items-center justify-between mb-xs">
+                  <h3 class="font-label-md text-label-md text-secondary uppercase tracking-wider">需製作單一產品</h3>
+                  <span class="font-caption text-caption text-on-surface-variant">共 <span
+                      class="font-label-md text-on-surface" id="ff-total-products">0</span> 個</span>
+                </div>
+                <div class="divide-y divide-surface-variant" id="ff-products"></div>
+              </div>
+            </div>
+          </div>
+        </section>
       </div>
     </main>
   </div>
@@ -264,7 +300,20 @@
         console.error(err);
       }
     }
+    /* 待出貨統計 (與訂單管理頁共用 admin.js 的 renderFulfillment) */
+    const FULFILLMENT_IDS = {
+      packages: "ff-packages",
+      products: "ff-products",
+      summary: "ff-summary",
+      totalPackages: "ff-total-packages",
+      totalProducts: "ff-total-products",
+    };
+
     loadDashboard();
+    loadFulfillment(FULFILLMENT_IDS);
+
+    // 前台有新訂單進來時,儀表板與待出貨統計一起更新
+    window.onNewOrders = () => { loadDashboard(); loadFulfillment(FULFILLMENT_IDS); };
   </script>
 </body>
 

@@ -128,6 +128,57 @@ def _order_row(payment_status="unpaid", status="pending"):
             "payment_status": payment_status, "status": status}
 
 
+def test_fulfillment_summary(client, monkeypatch, auth_headers):
+    """待出貨統計:禮盒盒數 + 換算成單一產品的製作數量。"""
+    def fake_query(sql, _args=None):
+        if "SUM(oi.quantity) AS qty" in sql:          # 禮盒彙總
+            return [
+                {"package_id": 1, "snapshot_name": "舊名稱", "qty": 5,
+                 "pending_qty": 2, "paid_qty": 3},
+                {"package_id": 9, "snapshot_name": "已刪除的禮盒", "qty": 1,
+                 "pending_qty": 1, "paid_qty": 0},
+            ]
+        if "FROM package" in sql:                      # 禮盒現況 (名稱以此為準)
+            return [{"id": 1, "name": "蛋黃酥禮盒", "spec": "6入",
+                     "image": "/a.jpg", "is_active": 1}]
+        if "package_products_map" in sql:              # 單一產品換算
+            return [
+                {"product_id": 3, "name": "紅豆蛋黃酥", "unit": "顆", "qty": 30},
+                {"product_id": 4, "name": "堅果塔", "unit": "個", "qty": 2.5},
+            ]
+        raise AssertionError(sql)
+
+    monkeypatch.setattr(db, "query", fake_query)
+    monkeypatch.setattr(db, "query_one", lambda *_a, **_k: {"c": 4})
+
+    body = client.get("/api/admin/fulfillment", headers=auth_headers()).get_json()
+    assert body["statuses"] == ["pending", "paid"]
+    assert body["orders"] == 4
+
+    pkgs = body["packages"]
+    # 禮盒改名後以現行名稱為準,查不到才用下單當下的快照
+    assert pkgs[0]["name"] == "蛋黃酥禮盒" and pkgs[0]["spec"] == "6入"
+    assert (pkgs[0]["quantity"], pkgs[0]["pending_quantity"], pkgs[0]["paid_quantity"]) == (5, 2, 3)
+    assert pkgs[0]["is_active"] is True
+    assert pkgs[1]["name"] == "已刪除的禮盒" and pkgs[1]["is_active"] is False
+    assert body["total_packages"] == 6
+
+    assert body["products"][0] == {
+        "product_id": 3, "name": "紅豆蛋黃酥", "unit": "顆", "quantity": 30.0}
+    assert body["products"][1]["quantity"] == 2.5
+    assert body["total_products"] == 32.5
+
+    assert client.get("/api/admin/fulfillment").status_code == 401
+
+
+def test_fulfillment_summary_empty(client, monkeypatch, auth_headers):
+    monkeypatch.setattr(db, "query", lambda *_a, **_k: [])
+    monkeypatch.setattr(db, "query_one", lambda *_a, **_k: {"c": 0})
+    body = client.get("/api/admin/fulfillment", headers=auth_headers()).get_json()
+    assert body == {"statuses": ["pending", "paid"], "orders": 0, "packages": [],
+                    "products": [], "total_packages": 0, "total_products": 0}
+
+
 class ManualOrderCursor:
     lastrowid = 55
 

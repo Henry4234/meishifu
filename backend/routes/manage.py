@@ -74,6 +74,80 @@ def _material_demand():
     return demand
 
 
+# ---------------------------------------------------------------- 待出貨統計
+@manage_bp.get("/fulfillment")
+@login_required
+def fulfillment_summary():
+    """尚未出貨的訂單 (待處理 / 已付款) 要備哪些貨。
+
+    兩個層級:
+      packages — 每款禮盒各要出幾盒 (揀貨、包裝用)
+      products — 換算成單一產品各要做幾個 (生產排程用),
+                 數量 = Σ(禮盒訂購盒數 × 該禮盒的內容物入數)
+
+    採用與材料需求相同的 ACTIVE_ORDER_STATUSES,兩邊口徑一致。
+    """
+    orders = db.query_one(
+        "SELECT COUNT(*) AS c FROM orders WHERE status IN %s", (ACTIVE_ORDER_STATUSES,))["c"]
+
+    # 禮盒:同時給出待處理 / 已付款的拆分,方便判斷哪些是已收款該優先做的
+    rows = db.query(
+        "SELECT oi.package_id,"
+        " MAX(oi.package_name) AS snapshot_name,"
+        " SUM(oi.quantity) AS qty,"
+        " SUM(CASE WHEN o.status = 'pending' THEN oi.quantity ELSE 0 END) AS pending_qty,"
+        " SUM(CASE WHEN o.status = 'paid' THEN oi.quantity ELSE 0 END) AS paid_qty"
+        " FROM order_items oi"
+        " JOIN orders o ON o.id = oi.order_id AND o.status IN %s"
+        " GROUP BY oi.package_id ORDER BY qty DESC",
+        (ACTIVE_ORDER_STATUSES,))
+
+    # 禮盒可能已改名或下架,名稱以現行資料為準,查不到才用下單當下的快照
+    current = {
+        r["id"]: r for r in db.query("SELECT id, name, spec, image, is_active FROM package")}
+    packages = []
+    for r in rows:
+        pkg = current.get(r["package_id"])
+        packages.append({
+            "package_id": r["package_id"],
+            "name": (pkg or {}).get("name") or r["snapshot_name"],
+            "spec": (pkg or {}).get("spec") or "",
+            "image": (pkg or {}).get("image") or "",
+            "is_active": bool((pkg or {}).get("is_active", 0)),
+            "quantity": int(r["qty"]),
+            "pending_quantity": int(r["pending_qty"]),
+            "paid_quantity": int(r["paid_qty"]),
+        })
+
+    # 單一產品:禮盒盒數 × 內容物入數。禮盒若沒設定內容物就不會出現在這裡。
+    products = [
+        {
+            "product_id": r["product_id"],
+            "name": r["name"],
+            "unit": r["unit"],
+            "quantity": round(float(r["qty"]), 2),
+        }
+        for r in db.query(
+            "SELECT ppm.product_id, p.name, p.unit,"
+            " SUM(oi.quantity * ppm.quantity) AS qty"
+            " FROM order_items oi"
+            " JOIN orders o ON o.id = oi.order_id AND o.status IN %s"
+            " JOIN package_products_map ppm ON ppm.package_id = oi.package_id"
+            " JOIN products p ON p.id = ppm.product_id"
+            " GROUP BY ppm.product_id, p.name, p.unit ORDER BY qty DESC",
+            (ACTIVE_ORDER_STATUSES,))
+    ]
+
+    return jsonify({
+        "statuses": list(ACTIVE_ORDER_STATUSES),
+        "orders": orders,
+        "packages": packages,
+        "products": products,
+        "total_packages": sum(p["quantity"] for p in packages),
+        "total_products": round(sum(p["quantity"] for p in products), 2),
+    })
+
+
 # ---------------------------------------------------------------- 手動建立訂單
 # 後台自行建立的內部訂單 (市集、親友、批發自取…)。不經綠界金流,只是把實際出貨
 # 的禮盒記錄下來,讓它跟線上訂單一樣進入成本統計與材料需求計算。

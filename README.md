@@ -228,6 +228,7 @@ Federation 部署三個 Cloud Run services，不使用長效 GCP JSON key。
 | GET | /api/admin/dashboard | 儀表板統計 |
 | GET/GET/PATCH | /api/admin/orders … /:id/status | 訂單列表/詳情/狀態更新 (列表可用 `status` / `source` / `q` 篩選) |
 | POST | /api/admin/orders | 手動建立內部訂單 (`source=manual`,不經綠界;限訂單管理員/超管) |
+| GET | /api/admin/fulfillment | 待出貨統計:待處理/已付款訂單的禮盒盒數與換算後的單一產品製作數量 |
 | GET | /api/admin/orders/updates?since_id= | 新訂單輪詢通知 (後台鈴鐺與 Toast) |
 | DELETE | /api/admin/orders/:id | 刪除訂單 (含明細);僅限未付款或狀態為待處理,否則回 400 |
 | GET/POST/PATCH | /api/admin/materials … /:id | 材料查詢與新增/編輯 (含需求預估與狀態) |
@@ -328,6 +329,24 @@ mysql -h <host> -P <port> -u <user> -p <db> < deploy/sql/2026-09-05-orders-manua
   `orders.payment_info`;實際入帳後才會再送一次 `RtnCode=1` 標記已付款。
 - **後台通知**:訂單直接寫入資料庫,後台各頁透過 `admin.js` 每 30 秒輪詢
   `/api/admin/orders/updates`,有新訂單時跳出 Toast 並在頁首鈴鐺顯示未讀數量。
+
+## 待出貨統計
+
+訂單管理頁的訂單清單下方、以及儀表板下方,都會顯示同一份「待出貨統計」,
+資料來自 `GET /api/admin/fulfillment`,兩頁共用 `admin.js` 的 `renderFulfillment()`:
+
+| 區塊 | 內容 | 用途 |
+|---|---|---|
+| 待出貨禮盒 | 每款禮盒各要出幾盒,並拆分待處理 / 已付款 | 揀貨、包裝 |
+| 需製作單一產品 | Σ(禮盒盒數 × 該禮盒內容物入數),以產品單位 (顆/個) 計 | 生產排程 |
+
+- 只計入狀態為 **待處理 (`pending`)** 或 **已付款 (`paid`)** 的訂單,
+  與材料需求 (`_material_demand`) 共用 `ACTIVE_ORDER_STATUSES`,兩邊口徑一致;
+  訂單一改為已出貨就會自動退出統計。
+- 禮盒名稱以 `package` 現行資料為準,查不到 (已刪除) 才退回下單當下的快照名稱,
+  已下架的禮盒會標示「(已下架)」。
+- 禮盒若沒設定內容物,就換算不出單一產品數量,該區塊會直接說明原因而不是顯示 0。
+- 訂單狀態異動、手動建單、刪單、前台有新訂單時都會即時重算。
 
 ## 後台手動建立訂單 (內部訂單)
 
