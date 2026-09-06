@@ -446,9 +446,10 @@ mysql -h <host> -P <port> -u <user> -p <db> < deploy/sql/2026-09-05-orders-manua
 `send.order.meishifu.org` 的 SPF TXT / feedback MX。建議另設定
 `_dmarc.order.meishifu.org` 的 DMARC TXT。
 
-本機可將 `.env.example` 的 SMTP 區段複製到 `.env`，並只在本機 `.env` 填入
-`SMTP_PASSWORD`。API key 不得提交到 Git。正式環境的 API key 存在 GCP Secret
-Manager 的 `meishifu-resend-api-key`，Cloud Run 只把它掛載成 `SMTP_PASSWORD`。
+本機可將 `.env.sample` 的 SMTP 區段複製到 `.env`，使用 Resend 時填入
+`RESEND_API_KEY`；其他 SMTP 服務可使用 `SMTP_PASSWORD`。API key 不得提交到 Git。
+正式環境的 API key 存在 GCP Secret Manager 的 `meishifu-resend-api-key`，Cloud Run
+只把它掛載成 `RESEND_API_KEY`，repository 內只有 secret resource name。
 
 後台狀態通知由 `backend/mail_tasks.py` 建立 `meishifu-mail` Cloud Tasks 任務；任務
 呼叫 `/api/internal/mail/order-status`，以 `SECRET_KEY` 的 HMAC 驗證請求。SMTP 暫時
