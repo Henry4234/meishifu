@@ -4,8 +4,10 @@
     材料 unit_cost → 單品成本 Σ(配方用量 × 材料單價)
                    → 禮盒成本 Σ(內容物入數 × 單品成本) + 包材成本
 """
+import logging
 import random
 import string
+import uuid
 from datetime import date, datetime, timedelta
 
 from flask import Blueprint, jsonify, request
@@ -13,11 +15,13 @@ from werkzeug.security import generate_password_hash
 
 import config
 import db
+import mailer
 from image_storage import save_upload
 from routes.admin import ROLE_LABELS, login_required, role_required
 from routes.shop import EMAIL_RE
 
 manage_bp = Blueprint("manage", __name__)
+log = logging.getLogger(__name__)
 
 ACTIVE_ORDER_STATUSES = ("pending", "paid")  # 尚未出貨 → 仍會消耗材料
 UNFINISHED_ORDER_STATUSES = ("pending", "paid", "shipped")  # 尚未結案 → 商品仍在流程中
@@ -298,6 +302,56 @@ def create_manual_order():
         "status": status,
         "payment_status": payment_status,
     }), 201
+
+
+# ---------------------------------------------------------------- 手動寄送通知信
+ORDER_MAIL_FIELDS = (
+    "id, order_no, customer_name, email, phone, address, store_id, store_name,"
+    " store_address, shipping_method, payment_method, subtotal, shipping_fee, total"
+)
+
+
+@manage_bp.post("/orders/<int:order_id>/notify")
+@role_required("order")
+def notify_order(order_id):
+    """後台手動寄送訂單通知信 (訂單成立 / 付款成功)。
+
+    手動建立的內部訂單不會自動寄信,而綠界訂單的付款成功也不在自動通知範圍內,
+    因此由後台按鈕觸發。同步寄送,讓管理員立即知道結果。
+    """
+    data = request.get_json(silent=True) or {}
+    notice = data.get("type", "created")
+    if notice not in mailer.ADMIN_NOTICES:
+        return jsonify({"error": "通知類型不正確"}), 400
+
+    order = db.query_one(f"SELECT {ORDER_MAIL_FIELDS} FROM orders WHERE id = %s", (order_id,))
+    if not order:
+        return jsonify({"error": "查無訂單"}), 404
+    if not (order.get("email") or "").strip():
+        return jsonify({"error": "此訂單沒有 Email,無法寄送通知信"}), 400
+
+    items = [
+        (r["package_id"], r["package_name"], r["unit_price"], r["quantity"], r["subtotal"])
+        for r in db.query(
+            "SELECT package_id, package_name, unit_price, quantity, subtotal"
+            " FROM order_items WHERE order_id = %s ORDER BY id", (order_id,))
+    ]
+
+    try:
+        sent = mailer.send_admin_notice(order, items, notice, event_id=uuid.uuid4().hex)
+    except Exception:
+        log.exception("後台寄送訂單通知信失敗: order_id=%s notice=%s", order_id, notice)
+        return jsonify({"error": "寄送失敗,請稍後再試或確認寄信設定"}), 502
+
+    if not sent:
+        return jsonify({"error": "系統尚未設定寄信服務 (SMTP),信件未寄出"}), 503
+    return jsonify({
+        "order_no": order["order_no"],
+        "email": order["email"],
+        "type": notice,
+        "label": mailer.ADMIN_NOTICES[notice],
+        "sent": True,
+    })
 
 
 # ---------------------------------------------------------------- 訂單刪除

@@ -162,8 +162,8 @@ def list_orders():
 
     total = db.query_one(f"SELECT COUNT(*) AS c FROM orders{where_sql}", args)["c"]
     rows = db.query(
-        f"SELECT id, order_no, source, customer_name, phone, total, status, payment_status,"
-        f" payment_method, shipping_method, created_at FROM orders{where_sql}"
+        f"SELECT id, order_no, source, customer_name, phone, email, total, status,"
+        f" payment_status, payment_method, shipping_method, created_at FROM orders{where_sql}"
         f" ORDER BY id DESC LIMIT %s OFFSET %s",
         args + [per_page, (page - 1) * per_page],
     )

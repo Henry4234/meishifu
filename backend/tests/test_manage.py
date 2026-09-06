@@ -2,6 +2,7 @@ from contextlib import contextmanager
 from datetime import date, datetime, timedelta
 
 import db
+import mailer
 from routes import manage
 
 
@@ -126,6 +127,90 @@ def _cursor_factory(cursor):
 def _order_row(payment_status="unpaid", status="pending"):
     return {"id": 7, "order_no": "MS-7", "customer_name": "王小明",
             "payment_status": payment_status, "status": status}
+
+
+ORDER_FOR_MAIL = {
+    "id": 7, "order_no": "MO-TEST", "customer_name": "王小明",
+    "email": "buyer@example.com", "phone": "", "address": "", "store_id": "",
+    "store_name": "", "store_address": "", "shipping_method": "pickup",
+    "payment_method": "cash", "subtotal": 650, "shipping_fee": 0, "total": 650,
+}
+
+
+def test_notify_order_sends_mail(client, monkeypatch, auth_headers):
+    """後台按鈕手動寄送通知信:訂單成立與付款成功兩種。"""
+    headers = auth_headers()
+    sent = []
+    monkeypatch.setattr(db, "query_one", lambda *_a, **_k: dict(ORDER_FOR_MAIL))
+    monkeypatch.setattr(db, "query", lambda *_a, **_k: [
+        {"package_id": 1, "package_name": "蛋黃酥禮盒", "unit_price": 650,
+         "quantity": 1, "subtotal": 650}])
+    monkeypatch.setattr(
+        mailer, "_send",
+        lambda to, subject, html, **kw: sent.append((to, subject, html, kw)) or True)
+
+    created = client.post("/api/admin/orders/7/notify", headers=headers,
+                          json={"type": "created"})
+    body = created.get_json()
+    assert created.status_code == 200
+    assert body["sent"] is True and body["label"] == "訂單成立通知"
+    assert body["email"] == "buyer@example.com"
+    to, subject, html, _kw = sent[0]
+    assert to == "buyer@example.com"
+    assert "訂單成立通知" in subject and "MO-TEST" in subject
+    assert "蛋黃酥禮盒" in html
+    # 手動訂單沒有電話,不能在信裡留下空白欄位
+    assert "聯絡電話:-" in html
+
+    paid = client.post("/api/admin/orders/7/notify", headers=headers, json={"type": "paid"})
+    assert paid.get_json()["label"] == "付款成功通知"
+    _to, subject, html, kw = sent[1]
+    assert "付款成功通知" in subject
+    assert "我們已收到您的款項" in html
+    assert "NT$ 650" in html
+    # 每次按下都是刻意重寄,idempotency key 必須不同才不會被 Resend 去重
+    assert kw["idempotency_key"] != sent[0][3]["idempotency_key"]
+
+    # 預設為訂單成立通知
+    client.post("/api/admin/orders/7/notify", headers=headers, json={})
+    assert "訂單成立通知" in sent[2][1]
+
+
+def test_notify_order_error_cases(client, monkeypatch, auth_headers):
+    headers = auth_headers()
+    monkeypatch.setattr(db, "query", lambda *_a, **_k: [])
+
+    monkeypatch.setattr(db, "query_one", lambda *_a, **_k: dict(ORDER_FOR_MAIL))
+    bad = client.post("/api/admin/orders/7/notify", headers=headers, json={"type": "shipped"})
+    assert bad.status_code == 400 and "類型" in bad.get_json()["error"]
+
+    monkeypatch.setattr(db, "query_one", lambda *_a, **_k: None)
+    assert client.post("/api/admin/orders/9/notify", headers=headers,
+                       json={"type": "created"}).status_code == 404
+
+    # 沒有 Email 的手動訂單不能寄
+    monkeypatch.setattr(db, "query_one", lambda *_a, **_k: {**ORDER_FOR_MAIL, "email": ""})
+    no_mail = client.post("/api/admin/orders/7/notify", headers=headers, json={"type": "created"})
+    assert no_mail.status_code == 400 and "沒有 Email" in no_mail.get_json()["error"]
+
+    # 未設定 SMTP 時要明講信沒寄出,不能假裝成功
+    monkeypatch.setattr(db, "query_one", lambda *_a, **_k: dict(ORDER_FOR_MAIL))
+    monkeypatch.setattr(mailer, "_send", lambda *_a, **_k: False)
+    disabled = client.post("/api/admin/orders/7/notify", headers=headers, json={"type": "created"})
+    assert disabled.status_code == 503 and "未設定寄信服務" in disabled.get_json()["error"]
+
+    # SMTP 例外要轉成錯誤訊息,不能是 500
+    def boom(*_a, **_k):
+        raise OSError("smtp down")
+
+    monkeypatch.setattr(mailer, "_send", boom)
+    failed = client.post("/api/admin/orders/7/notify", headers=headers, json={"type": "created"})
+    assert failed.status_code == 502 and "寄送失敗" in failed.get_json()["error"]
+
+    # 權限:一般管理員不可寄送
+    assert client.post("/api/admin/orders/7/notify", headers=auth_headers(role="staff"),
+                       json={"type": "created"}).status_code == 403
+    assert client.post("/api/admin/orders/7/notify", json={"type": "created"}).status_code == 401
 
 
 def test_fulfillment_summary(client, monkeypatch, auth_headers):

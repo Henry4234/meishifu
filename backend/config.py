@@ -91,7 +91,11 @@ MAIL = {
     "host": os.getenv("SMTP_HOST", ""),
     "port": int(os.getenv("SMTP_PORT", "587")),
     "user": os.getenv("SMTP_USER", ""),
-    "password": os.getenv("SMTP_PASSWORD", ""),
+    # Production mounts the Resend key under its provider-specific name. Keep
+    # SMTP_PASSWORD as a fallback for generic SMTP servers and local development.
+    "password": (
+        os.getenv("RESEND_API_KEY") or os.getenv("SMTP_PASSWORD", "")
+    ),
     "use_tls": os.getenv("SMTP_USE_TLS", "true").lower() in ("1", "true", "yes"),
     "use_ssl": os.getenv("SMTP_USE_SSL", "").lower() in ("1", "true", "yes"),
     "sender": os.getenv(

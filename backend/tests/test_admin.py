@@ -80,6 +80,7 @@ def test_order_management(client, monkeypatch, auth_headers):
             "order_no": "MS1",
             "source": "online",
             "customer_name": "王",
+            "email": "buyer@example.com",
             "phone": "0912",
             "total": 500,
             "status": "pending",
@@ -96,6 +97,8 @@ def test_order_management(client, monkeypatch, auth_headers):
     listed = listing.get_json()["orders"][0]
     assert listed["status_label"] == "待處理"
     assert listed["source_label"] == "線上訂單"
+    # 前端要靠 email 決定寄信按鈕能不能按
+    assert listed["email"] == "buyer@example.com"
 
     # 來源篩選會加進 WHERE,不合法的值直接忽略
     captured = {}
