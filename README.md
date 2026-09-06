@@ -399,13 +399,21 @@ mysql -h <host> -P <port> -u <user> -p <db> < deploy/sql/2026-09-05-orders-manua
 選擇全家店到店或 7-11 交貨便時,門市不再手動輸入,而是開新視窗進綠界電子地圖挑選:
 
 ```
-購物車按「選擇門市」
-  → 開新視窗到 GET /api/logistics/map?method=fami&device=0
+購物車按「選擇門市」(先把已填的表單暫存到 sessionStorage)
+  → 同分頁前往 GET /api/logistics/map?method=fami&device=0
   → 後端回傳一頁自動送出的表單,把消費者帶到綠界電子地圖
   → 消費者選好門市,綠界 POST 到 /api/logistics/map-reply
-  → 後端把門市資料簽章後 postMessage 給購物車頁並關閉視窗
+  → 後端把門市資料簽章後,以 303 導回購物車頁 (門市放在查詢字串)
+  → 購物車頁還原表單、套用門市,並清掉網址上的參數
   → 送出訂單時附上門市與簽章,後端驗證後才寫入 orders
 ```
+
+> **為什麼是同分頁跳轉,不是彈出視窗**
+> 本站主要透過 LINE 分享,消費者多在 LINE 內建瀏覽器 (WebView) 開啟。
+> 該環境不支援 `window.open` 彈出視窗,即使開得起來 `window.opener` 也是 `null`,
+> 選完門市後的 `postMessage` 永遠回不到購物車頁 —— 這正是先前「轉跳錯誤」的原因。
+> 改為同分頁跳轉後,所有瀏覽器都可行,也一併消除了彈出視窗被攔截的失敗模式。
+> 代價是離開頁面會清空表單,因此改用 `sessionStorage` 暫存後還原。
 
 - **物流商店代號與金流不同**:全家店到店 / 7-11 交貨便屬於 C2C,`.env` 以
   `ECPAY_LOGISTICS_MERCHANT_ID` 設定 (預設為綠界 C2C 測試特店 `2000933`,
@@ -414,9 +422,12 @@ mysql -h <host> -P <port> -u <user> -p <db> < deploy/sql/2026-09-05-orders-manua
   `/api/logistics/map-reply` 會用 `SECRET_KEY` 對
   `store_id|store_name|store_address|sub_type` 做 HMAC-SHA256 簽章,
   建立訂單時 `ecpay.verify_store()` 會再驗一次,簽章不符或門市與配送方式不符都會回 400。
-- 選店視窗以 `postMessage` 回傳結果,因此 `ECPAY_MAP_REPLY_URL` 必須與前台**同源**
-  (預設取 `FRONTEND_BASE_URL` 的來源 + `/api/logistics/map-reply`);購物車頁只接受
-  同源且 `source === "ecpay-map"` 的訊息。
+- 門市資料經由**網址查詢字串**傳遞,所以簽章不是可有可無的:任何人都能改網址,
+  但改過就過不了 `verify_store()`。`ECPAY_MAP_REPLY_URL` 預設取 `FRONTEND_BASE_URL`
+  的來源 + `/api/logistics/map-reply`,導回目標則是 `PAY_RETURN_URL`。
+- 兩處自動導向 (電子地圖的自動送出、綠界付款頁的表單送出) 都保留了**手動按鈕備援**。
+  部分 App 內建瀏覽器會擋掉非使用者手勢觸發的導向,沒有備援的話消費者會卡在
+  轉場畫面、而訂單已經成立。
 - 目前只做到「選店 + 記錄門市」。若要進一步由系統建立物流訂單 / 列印托運單,
   需再串綠界物流的建立訂單 API,屆時還要在 `.env` 補上物流專用的 HashKey / HashIV。
 
