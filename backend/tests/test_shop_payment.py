@@ -1,6 +1,6 @@
-import json
 from datetime import datetime
 from email.header import decode_header, make_header
+from urllib.parse import parse_qs, urlparse
 
 import config
 import db
@@ -346,15 +346,21 @@ def test_ecpay_map_params_and_store_signature():
 
 
 def test_logistics_map_endpoints(client):
-    # 開啟電子地圖:自動送出的表單
+    """選店改為同分頁跳轉:LINE 內建瀏覽器不支援彈出視窗與 window.opener。"""
+    # 開啟電子地圖:自動送出的表單,同時保留一顆真的按鈕當備援
     page = client.get("/api/logistics/map?method=fami&device=1").get_data(as_text=True)
     assert config.ECPAY_MAP_URL in page
     assert 'name="LogisticsSubType" value="FAMIC2C"' in page
     assert 'name="Device" value="1"' in page
     assert "map-form" in page and "submit()" in page
-    assert client.get("/api/logistics/map?method=blackcat").status_code == 400
+    assert 'target="_self"' in page                     # 同分頁,不是彈出視窗
+    assert '<button class="btn" type="submit">' in page  # 自動送出被擋時的備援
 
-    # 綠界回傳選定門市:簽章後以 postMessage 帶回購物車頁
+    bad = client.get("/api/logistics/map?method=blackcat")
+    assert bad.status_code == 400
+    assert config.PAY_RETURN_URL in bad.get_data(as_text=True)   # 有路可以回購物車
+
+    # 綠界回傳選定門市:303 導回購物車頁,門市資料放查詢字串並附簽章
     reply = client.post("/api/logistics/map-reply", data={
         "MerchantID": "2000933",
         "MerchantTradeNo": "MAP20260901120000123",
@@ -366,20 +372,29 @@ def test_logistics_map_endpoints(client):
         "CVSOutSide": "0",
         "ExtraData": "unimart",
     })
-    html = reply.get_data(as_text=True)
-    assert "美麗門市" in html and "991182" in html
-    assert f'postMessage(payload, "{config.PUBLIC_ORIGIN}")' in html
+    # 303 才會把綠界的 POST 轉成 GET
+    assert reply.status_code == 303
+    location = reply.headers["Location"]
+    assert location.startswith(config.PAY_RETURN_URL + "?")
+    assert "postMessage" not in reply.get_data(as_text=True)
 
-    payload = json.loads(html.split("var payload = ", 1)[1].split(";\n", 1)[0])
-    assert payload["source"] == "ecpay-map"
-    assert payload["store"]["method"] == "unimart"
-    assert payload["store"]["store_phone"] == "0223456789"
-    assert ecpay.verify_store(payload["store"], payload["store"]["signature"])
+    # keep_blank_values:空字串欄位 (例如沒有地址的門市) 也要保留,否則簽章對不上
+    query = parse_qs(urlparse(location).query, keep_blank_values=True)
+    store = {k: query[k][0] for k in
+             ("store_id", "store_name", "store_address", "sub_type")}
+    assert store["store_id"] == "991182"
+    assert store["store_name"] == "美麗門市"
+    assert store["store_address"] == "台北市大安區和平東路一段1號"
+    assert query["method"][0] == "unimart"
+    # 簽章要能通過驗證 —— 門市資料經由網址傳遞,竄改會在建立訂單時被擋下
+    assert ecpay.verify_store(store, query["store_sig"][0])
+    assert not ecpay.verify_store({**store, "store_id": "000001"}, query["store_sig"][0])
 
     # ExtraData 不在白名單時不回傳配送方式,前台會要求重新選店
     other = client.post("/api/logistics/map-reply", data={
-        "CVSStoreID": "1", "CVSStoreName": "X", "ExtraData": "evil"}).get_data(as_text=True)
-    assert json.loads(other.split("var payload = ", 1)[1].split(";\n", 1)[0])["store"]["method"] == ""
+        "CVSStoreID": "1", "CVSStoreName": "X", "ExtraData": "evil"})
+    other_query = parse_qs(urlparse(other.headers["Location"]).query, keep_blank_values=True)
+    assert other_query["method"] == [""]
 
 
 def test_ecpay_official_check_mac_value_vector():

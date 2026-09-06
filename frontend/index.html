@@ -126,6 +126,15 @@
           <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-gutter" id="popular-products">
             <p class="font-body-md text-on-surface-variant col-span-full">商品載入中...</p>
           </div>
+          <!-- 全寬入口:首頁只放 3 款,這裡明確引導到完整商品列表 -->
+          <a class="group mt-lg w-full flex items-center justify-center gap-xs px-lg py-md bg-surface-container-lowest text-primary font-label-md rounded-xl ring-1 ring-primary/30 shadow-[0_4px_24px_rgba(157,129,137,0.05)] hover:bg-primary hover:text-on-primary hover:ring-primary hover:shadow-[0_8px_32px_rgba(157,129,137,0.18)] transition-all duration-300"
+            href="products.html">
+            <span class="material-symbols-outlined text-[20px]">grid_view</span>
+            查看全部商品
+            <span class="font-caption opacity-80" id="all-products-count"></span>
+            <span
+              class="material-symbols-outlined text-[20px] group-hover:translate-x-1 transition-transform">arrow_forward</span>
+          </a>
         </div>
       </section>
       <!-- Brand Concept Section -->
@@ -269,11 +278,25 @@
     </div>
   </footer>
   <script>
+    /* 禮盒內容膠囊,樣式與 products.html 的「禮盒內容」相同 */
+    function packageContents(p) {
+      const items = p.items || [];
+      if (!items.length) return '<span class="font-caption text-on-surface-variant">內容物準備中</span>';
+      return items.map((i) => `
+        <span class="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-surface-container text-on-surface-variant font-caption whitespace-nowrap">
+          ${i.name}<span class="text-primary font-semibold">×${i.quantity}</span>
+        </span>`).join("");
+    }
+
     async function loadPopular() {
       const box = document.getElementById("popular-products");
       try {
         const { packages: products } = await apiGet("/packages");
         const top = products.slice(0, 3);
+        // 讓消費者知道首頁只是精選,後面還有更多商品
+        const more = products.length - top.length;
+        document.getElementById("all-products-count").textContent =
+          more > 0 ? `(還有 ${more} 款)` : "";
         box.innerHTML = top.map((p) => `
       <article class="group flex flex-col bg-surface-container-lowest rounded-xl overflow-hidden shadow-[0_4px_24px_rgba(157,129,137,0.05)] hover:shadow-[0_12px_32px_rgba(157,129,137,0.1)] transition-all duration-500">
         <div class="relative aspect-square overflow-hidden bg-surface-container-low p-md">
@@ -285,7 +308,11 @@
             <h3 class="font-headline-md text-on-surface group-hover:text-primary transition-colors">${p.name}</h3>
             <span class="font-label-md text-on-surface whitespace-nowrap">${formatPrice(p.price)}</span>
           </div>
-          <p class="font-body-md text-on-surface-variant line-clamp-2 mb-md flex-grow">${p.description}</p>
+          <p class="font-body-md text-on-surface-variant line-clamp-2 mb-sm">${p.description}</p>
+          <div class="mb-md flex-grow">
+            <p class="font-caption text-primary tracking-wider mb-1">禮盒內容</p>
+            <div class="flex flex-wrap gap-1">${packageContents(p)}</div>
+          </div>
           <button class="w-full py-sm bg-surface-container text-on-surface font-label-md rounded-lg hover:bg-primary-fixed hover:text-on-primary-fixed transition-colors flex items-center justify-center gap-xs" data-id="${p.id}">
             <span class="material-symbols-outlined text-[18px]">add_shopping_cart</span> 加入購物車
           </button>

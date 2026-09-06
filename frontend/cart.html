@@ -129,7 +129,14 @@
 </div>
 <h1 class="font-headline-lg text-headline-lg text-on-surface mb-sm">訂單已建立,正在前往安全付款頁</h1>
 <p class="font-body-lg text-on-surface-variant">訂單編號 <span class="font-label-md text-primary" id="redirect-order-no"></span></p>
-<p class="font-body-md text-on-surface-variant">頁面將自動轉跳至綠界科技 ECPay,請勿關閉視窗。</p>
+<p class="font-body-md text-on-surface-variant" id="redirect-hint">頁面將自動轉跳至綠界科技 ECPay,請勿關閉視窗。</p>
+<button class="hidden px-8 py-4 bg-primary text-on-primary rounded-full font-label-md shadow-md hover:shadow-lg transition-all mt-md" id="manual-pay-btn" type="button">
+<span class="material-symbols-outlined align-middle mr-1">lock</span>手動前往付款頁
+</button>
+<p class="hidden font-caption text-on-surface-variant max-w-md" id="redirect-fallback-note">
+        訂單已成立,尚未付款。若此處無法轉跳,請用手機瀏覽器 (Safari / Chrome) 開啟本站,
+        或保留上方訂單編號與我們聯繫。
+      </p>
 </div>
 <!-- 付款結果畫面 (由綠界導回時顯示) -->
 <div class="hidden max-w-2xl mx-auto py-xl px-margin-mobile text-center flex-col items-center gap-md" id="result-view">
@@ -209,9 +216,33 @@ function renderCart() {
 const SHIPPING_FEES = { delivery: 130, fami: 65, unimart: 65 };
 const CVS_METHODS = ["fami", "unimart"];
 const STORE_HINTS = {
-  fami: "將開啟綠界門市地圖,選擇取件的全家門市後會自動帶回。",
-  unimart: "將開啟綠界門市地圖,選擇取件的 7-11 門市後會自動帶回。",
+  fami: "將前往綠界門市地圖選擇全家門市,選好後會自動返回本頁,已填寫的資料會保留。",
+  unimart: "將前往綠界門市地圖選擇 7-11 門市,選好後會自動返回本頁,已填寫的資料會保留。",
 };
+
+/* 選店會離開本頁 (見下方說明),先把已填的表單暫存起來,回來時還原。
+   用 sessionStorage:只在這個分頁有效,關掉就消失,不會殘留舊資料。 */
+const DRAFT_KEY = "meishifu_checkout_draft";
+const DRAFT_FIELDS = ["fullName", "phone", "email", "address"];
+
+function saveDraft() {
+  const draft = { shipping: shippingMethod(), payment: paymentMethod() };
+  DRAFT_FIELDS.forEach((id) => { draft[id] = document.getElementById(id).value; });
+  try { sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft)); } catch { /* 無痕模式可能不給存 */ }
+}
+
+function restoreDraft() {
+  let draft = null;
+  try { draft = JSON.parse(sessionStorage.getItem(DRAFT_KEY)); } catch { return; }
+  if (!draft) return;
+  DRAFT_FIELDS.forEach((id) => { if (draft[id]) document.getElementById(id).value = draft[id]; });
+  selectRadio("shipping", draft.shipping);
+  selectRadio("payment", draft.payment);
+}
+
+function clearDraft() {
+  try { sessionStorage.removeItem(DRAFT_KEY); } catch { /* 同上 */ }
+}
 
 function shippingMethod() { return document.querySelector('input[name="shipping"]:checked').value; }
 function paymentMethod() { return document.querySelector('input[name="payment"]:checked').value; }
@@ -250,30 +281,32 @@ function syncShippingFields() {
   renderStore();
 }
 
-/* 開新視窗進綠界電子地圖;選好門市後由 /api/logistics/map-reply 以 postMessage 帶回 */
+/* 以「同分頁跳轉」前往綠界電子地圖,選完後由 /api/logistics/map-reply 帶著
+   簽章過的門市資料 303 導回本頁。
+
+   為什麼不用彈出視窗:LINE 內建瀏覽器 (WebView) 不支援 window.open,
+   就算開得起來 window.opener 也是 null,postMessage 永遠回不來。
+   同分頁跳轉在所有瀏覽器都可行,也不會被彈出視窗攔截器擋掉。 */
 document.getElementById("pick-store-btn").addEventListener("click", () => {
   const method = shippingMethod();
   if (!CVS_METHODS.includes(method)) return;
+  saveDraft();
   const device = window.innerWidth < 768 ? 1 : 0;
-  const url = `${API_BASE}/logistics/map?method=${method}&device=${device}`;
-  const win = window.open(url, "ecpayMap", "width=980,height=760,menubar=no,toolbar=no");
-  if (!win) showToast("瀏覽器阻擋了門市地圖視窗,請允許彈出視窗後再試一次");
+  window.location.href = `${API_BASE}/logistics/map?method=${method}&device=${device}`;
 });
 
-window.addEventListener("message", (event) => {
-  // 選店視窗與購物車頁同源 (皆走 /api),非同源的訊息一律忽略
-  if (event.origin !== window.location.origin) return;
-  const data = event.data;
-  if (!data || data.source !== "ecpay-map" || !data.store || !data.store.store_id) return;
-  selectedStore = data.store;
-  if (selectedStore.method && selectedStore.method !== shippingMethod()) {
-    selectedStore = null;
-    showToast("選到的門市與目前的配送方式不符,請重新選擇");
-  } else {
-    showToast(`已選擇門市:${selectedStore.store_name}`);
-  }
-  renderStore();
-});
+/* 從電子地圖導回時,門市資料放在查詢字串,簽章由後端在建立訂單時再驗一次 */
+function storeFromUrl(params) {
+  const store = {
+    store_id: params.get("store_id") || "",
+    store_name: params.get("store_name") || "",
+    store_address: params.get("store_address") || "",
+    sub_type: params.get("sub_type") || "",
+    method: params.get("method") || "",
+    signature: params.get("store_sig") || "",
+  };
+  return store.store_id && store.signature ? store : null;
+}
 
 function updateTotals() {
   const cart = getCart();
@@ -285,40 +318,70 @@ function updateTotals() {
   document.getElementById("total").textContent = formatPrice(subtotal + fee);
 }
 
-// 選項卡片視覺狀態
+// 選項卡片視覺狀態 (還原暫存資料時也要重畫,故獨立成函式)
+function updateOptionCards(name) {
+  document.querySelectorAll(`input[name="${name}"]`).forEach((r) => {
+    const card = r.closest(".option-card");
+    const icon = card.querySelector(".material-symbols-outlined");
+    card.classList.toggle("ring-2", r.checked);
+    card.classList.toggle("ring-primary", r.checked);
+    card.classList.toggle("ring-1", !r.checked);
+    card.classList.toggle("ring-tertiary-fixed", !r.checked);
+    icon.classList.toggle("text-primary", r.checked);
+    icon.classList.toggle("text-tertiary", !r.checked);
+  });
+}
+
+function selectRadio(name, value) {
+  const el = document.querySelector(`input[name="${name}"][value="${value}"]`);
+  if (!el) return;
+  el.checked = true;
+  updateOptionCards(name);
+}
+
 document.querySelectorAll('input[type="radio"]').forEach((radio) => {
   radio.addEventListener("change", () => {
-    document.querySelectorAll(`input[name="${radio.name}"]`).forEach((r) => {
-      const card = r.closest(".option-card");
-      const icon = card.querySelector(".material-symbols-outlined");
-      card.classList.toggle("ring-2", r.checked);
-      card.classList.toggle("ring-primary", r.checked);
-      card.classList.toggle("ring-1", !r.checked);
-      card.classList.toggle("ring-tertiary-fixed", !r.checked);
-      icon.classList.toggle("text-primary", r.checked);
-      icon.classList.toggle("text-tertiary", !r.checked);
-    });
+    updateOptionCards(radio.name);
     if (radio.name === "shipping") syncShippingFields();
     updateTotals();
   });
 });
 
-/* 以隱藏表單 POST 到綠界,瀏覽器即進入 ECPay 付款頁 */
+/* 以隱藏表單 POST 到綠界,瀏覽器即進入 ECPay 付款頁。
+
+   target 明確指定 _self:同分頁導向,不會被當成彈出視窗 (App 內建瀏覽器
+   對彈出視窗一律封鎖)。此外自動送出發生在 await 之後,已不在使用者手勢的
+   期間內,少數 WebView 會擋掉這種導向 —— 因此若數秒後仍停在本頁,
+   就顯示按鈕讓消費者自己按 (使用者手勢一定放行),避免訂單已成立卻卡在轉場畫面。 */
+let gatewayForm = null;
+
 function postToGateway(payment) {
-  const form = document.createElement("form");
-  form.method = "POST";
-  form.action = payment.action;
-  form.acceptCharset = "utf-8";
+  gatewayForm = document.createElement("form");
+  gatewayForm.method = "POST";
+  gatewayForm.action = payment.action;
+  gatewayForm.target = "_self";
+  gatewayForm.acceptCharset = "utf-8";
   Object.entries(payment.params).forEach(([name, value]) => {
     const input = document.createElement("input");
     input.type = "hidden";
     input.name = name;
     input.value = value;
-    form.appendChild(input);
+    gatewayForm.appendChild(input);
   });
-  document.body.appendChild(form);
-  form.submit();
+  document.body.appendChild(gatewayForm);
+  gatewayForm.submit();
+  setTimeout(showManualPayFallback, 3000);
 }
+
+function showManualPayFallback() {
+  document.getElementById("redirect-hint").textContent = "沒有自動跳轉嗎?請點選下方按鈕前往付款頁。";
+  document.getElementById("manual-pay-btn").classList.remove("hidden");
+  document.getElementById("redirect-fallback-note").classList.remove("hidden");
+}
+
+document.getElementById("manual-pay-btn").addEventListener("click", () => {
+  if (gatewayForm) gatewayForm.submit();
+});
 
 document.getElementById("checkout-form").addEventListener("submit", async (e) => {
   e.preventDefault();
@@ -352,6 +415,7 @@ document.getElementById("checkout-form").addEventListener("submit", async (e) =>
       items: cart.map((i) => ({ package_id: i.package_id, quantity: i.quantity })),
     });
     clearCart();
+    clearDraft();
     document.getElementById("cart-view").classList.add("hidden");
     const rv = document.getElementById("redirect-view");
     rv.classList.remove("hidden");
@@ -424,10 +488,23 @@ async function showPaymentResult(orderNo, hint) {
   document.getElementById("payment-note").textContent = "本次交易由綠界科技 ECPay 提供安全付款服務。";
 }
 
-const returnedOrderNo = new URLSearchParams(window.location.search).get("order_no");
+const urlParams = new URLSearchParams(window.location.search);
+const returnedOrderNo = urlParams.get("order_no");
 if (returnedOrderNo) {
-  showPaymentResult(returnedOrderNo, new URLSearchParams(window.location.search).get("result"));
+  clearDraft();
+  showPaymentResult(returnedOrderNo, urlParams.get("result"));
 } else {
+  restoreDraft();
+  // 從綠界電子地圖導回:套用選定的門市
+  const pickedStore = storeFromUrl(urlParams);
+  if (pickedStore) {
+    selectedStore = pickedStore;
+    // 配送方式跟著門市走,避免還原後兩者不一致而被 syncShippingFields 清掉
+    if (pickedStore.method) selectRadio("shipping", pickedStore.method);
+    // 清掉網址上的門市參數,重新整理時才不會重複套用
+    history.replaceState(null, "", window.location.pathname);
+    showToast(`已選擇門市:${pickedStore.store_name}`);
+  }
   syncShippingFields();
   renderCart();
 }
