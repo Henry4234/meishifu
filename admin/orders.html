@@ -203,7 +203,8 @@
         <div>
           <h2 class="font-headline-md text-headline-md text-on-surface">新增訂單</h2>
           <p class="font-caption text-caption text-on-surface-variant mt-xs">
-            後台手動建立的內部訂單,不經綠界金流、不寄送通知信,但會計入成本統計與材料需求。
+            後台手動建立的內部訂單,不經綠界金流,但會計入成本統計與材料需求。
+            建立時不會自動寄信,可於訂單列表的「操作」欄按信封圖示手動寄送通知信。
           </p>
         </div>
         <button class="text-on-surface-variant hover:text-error p-1" onclick="closeCreateModal()" type="button"><span
@@ -227,7 +228,7 @@
           <span class="font-label-md text-label-md text-on-surface">Email <span
               class="text-on-surface-variant font-normal">(選填)</span></span>
           <input class="bg-surface-container px-md py-sm rounded-lg focus:outline-none focus:ring-1 focus:ring-primary"
-            id="f-email" maxlength="120" placeholder="留空則不會寄送任何通知信" type="email" />
+            id="f-email" maxlength="120" placeholder="留空則無法寄送通知信" type="email" />
         </label>
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-sm">
           <label class="flex flex-col gap-xs">
@@ -356,6 +357,9 @@
           <td class="py-sm px-md">${statusBadge(o.status)}</td>
           <td class="py-sm px-md text-right">
             <button class="p-xs text-on-surface-variant hover:text-primary transition-colors" onclick="showDetail(${o.id})" title="查看詳情"><span class="material-symbols-outlined text-[20px]">visibility</span></button>
+            ${o.email
+              ? `<button class="p-xs text-on-surface-variant hover:text-secondary transition-colors" onclick="sendNotice(${o.id}, 'created')" title="寄送訂單通知信至 ${o.email}"><span class="material-symbols-outlined text-[20px]">mail</span></button>`
+              : '<button class="p-xs text-outline-variant cursor-not-allowed" disabled title="此訂單沒有 Email,無法寄送通知信"><span class="material-symbols-outlined text-[20px]">mail_off</span></button>'}
             ${canDelete(o)
               ? `<button class="p-xs text-on-surface-variant hover:text-error transition-colors" onclick="deleteOrder(${o.id}, '${o.order_no}')" title="刪除訂單"><span class="material-symbols-outlined text-[20px]">delete</span></button>`
               : '<button class="p-xs text-outline-variant cursor-not-allowed" disabled title="已付款且進入處理流程的訂單無法刪除"><span class="material-symbols-outlined text-[20px]">delete</span></button>'}
@@ -609,11 +613,25 @@
         <div class="h-px bg-surface-variant my-sm"></div>
         <div class="flex items-center justify-between gap-sm">
           <span class="text-on-surface-variant">更新狀態</span>
-          <select class="bg-surface-container px-md py-sm rounded-full font-label-md text-label-md cursor-pointer focus:outline-none" id="status-select">
+          <select class="bg-surface-container px-md py-sm rounded-full font-label-md text-label-md cursor-pointer focus:outline-none"
+            data-current="${o.status}" data-has-email="${o.email ? "1" : "0"}" id="status-select">
             ${["pending", "paid", "shipped", "completed", "cancelled"].map((s) =>
           `<option value="${s}" ${s === o.status ? "selected" : ""}>${STATUS_STYLE[s].label}</option>`).join("")}
           </select>
           <button class="bg-primary text-on-primary font-label-md text-label-md px-md py-sm rounded-full hover:shadow-md transition-all" onclick="updateStatus(${o.id})">儲存</button>
+        </div>
+        <div class="flex items-center justify-between gap-sm pt-sm border-t border-surface-variant">
+          <span class="text-on-surface-variant">通知信</span>
+          ${o.email
+            ? `<div class="flex gap-xs">
+                 <button class="flex items-center gap-1 px-md py-sm rounded-full bg-surface-container hover:bg-surface-container-high font-label-md text-label-md transition-colors" onclick="sendNotice(${o.id}, 'created')">
+                   <span class="material-symbols-outlined text-[18px]">mail</span>訂單成立
+                 </button>
+                 <button class="flex items-center gap-1 px-md py-sm rounded-full bg-surface-container hover:bg-surface-container-high font-label-md text-label-md transition-colors" onclick="sendNotice(${o.id}, 'paid')">
+                   <span class="material-symbols-outlined text-[18px]">paid</span>付款成功
+                 </button>
+               </div>`
+            : '<span class="font-caption text-on-surface-variant">此訂單沒有 Email,無法寄送</span>'}
         </div>
       </div>`;
         const modal = document.getElementById("detail-modal");
@@ -622,8 +640,35 @@
       } catch (err) { adminToast(err.message, true); }
     }
 
+    /* 手動寄送訂單通知信。手動建立的訂單不會自動寄信,付款成功也不在自動通知範圍,
+       因此由管理員按鈕觸發;後端同步寄送,成功與否都會即時回報。 */
+    async function sendNotice(id, type, silent) {
+      try {
+        const r = await adminFetch(`/admin/orders/${id}/notify`, {
+          method: "POST",
+          body: JSON.stringify({ type }),
+        });
+        adminToast(`${r.label}已寄至 ${r.email}`);
+        return true;
+      } catch (err) {
+        // 狀態已更新成功、只有信沒寄出時,訊息要講清楚是哪一段失敗
+        adminToast((silent ? "訂單狀態已更新,但通知信寄送失敗:" : "寄送失敗:") + err.message, true);
+        return false;
+      }
+    }
+
     async function updateStatus(id) {
-      const status = document.getElementById("status-select").value;
+      const select = document.getElementById("status-select");
+      const status = select.value;
+      const previous = select.dataset.current;
+      const hasEmail = select.dataset.hasEmail === "1";
+
+      // 第一次由「待處理」改為「已付款」時,詢問是否一併通知顧客
+      let notifyPaid = false;
+      if (previous === "pending" && status === "paid" && hasEmail) {
+        notifyPaid = confirm("是否寄送信件通知付款成功?");
+      }
+
       try {
         await adminFetch(`/admin/orders/${id}/status`, {
           method: "PATCH",
@@ -632,6 +677,7 @@
         closeModal();
         loadOrders();
         refreshFulfillment();
+        if (notifyPaid) await sendNotice(id, "paid", true);
       } catch (err) { adminToast(err.message, true); }
     }
 

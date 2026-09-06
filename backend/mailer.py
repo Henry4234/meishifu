@@ -128,7 +128,7 @@ def render_order_created(order: dict, items) -> str:
     <div style="margin-top:24px;padding-top:16px;border-top:1px solid #ffd9df;font-size:14px;color:#4e4447">
       <p style="margin:4px 0">配送方式:{shipping}</p>
       <p style="margin:4px 0">收件資訊:{destination}</p>
-      <p style="margin:4px 0">聯絡電話:{phone}</p>
+      <p style="margin:4px 0">聯絡電話:{phone or '-'}</p>
       <p style="margin:4px 0">付款方式:{payment}</p>
     </div>
     <p style="margin-top:24px;font-size:13px;color:#807477">
@@ -144,6 +144,67 @@ def send_order_created(order: dict, items) -> None:
         return
     send_async(email, f"【美師傅 meishifu】訂單成立通知 {order['order_no']}",
                render_order_created(order, items))
+
+
+# ---------------------------------------------------------------- 後台手動寄送
+# 後台「操作」欄的寄信按鈕與「待處理 → 已付款」的確認視窗會用到。
+# 這兩種通知刻意不放進 NOTIFIABLE_STATUSES:那一組是狀態變更時「自動」寄送的，
+# 而這裡是管理員按下按鈕才寄，兩者的觸發時機不同。
+ADMIN_NOTICES = {
+    "created": "訂單成立通知",
+    "paid": "付款成功通知",
+}
+
+
+def render_payment_success(order: dict) -> str:
+    """付款成功通知信。手動訂單收到現金/轉帳後由後台自行寄送。"""
+    customer_name = escape(str(order.get("customer_name") or "顧客"))
+    order_no = escape(str(order["order_no"]))
+    destination = escape(store_destination(order))
+    shipping = escape(config.SHIPPING_LABELS.get(
+        order.get("shipping_method", ""), order.get("shipping_method", "")))
+    payment = escape(config.PAYMENT_LABELS.get(
+        order.get("payment_method", ""), order.get("payment_method", "")))
+    return f"""
+<div style="font-family:'Helvetica Neue',Arial,'Microsoft JhengHei',sans-serif;
+            background:#fff8f7;padding:24px;color:#30121a">
+  <div style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:16px;padding:32px">
+    <h1 style="font-size:22px;margin:0 0 8px">我們已收到您的款項</h1>
+    <p style="margin:0 0 24px;color:#4e4447">
+      {customer_name} 您好,訂單 <strong>{order_no}</strong> 的款項已確認收到,
+      我們將盡快為您安排出貨。
+    </p>
+    <div style="padding:16px;background:#fff8f7;border-radius:12px;color:#4e4447;font-size:14px">
+      <p style="margin:4px 0">訂單金額:{_money(order['total'])}</p>
+      <p style="margin:4px 0">付款方式:{payment or '-'}</p>
+      <p style="margin:4px 0">配送方式:{shipping or '-'}</p>
+      <p style="margin:4px 0">收件資訊:{destination}</p>
+    </div>
+    <p style="margin:24px 0 0;font-size:13px;color:#807477">
+      本信件由系統自動發送,請勿直接回覆。如有訂單問題請與美師傅聯絡。
+    </p>
+  </div>
+</div>"""
+
+
+def send_admin_notice(order: dict, items, notice: str, *, event_id: str = "") -> bool:
+    """後台按鈕觸發的通知信。同步寄送,讓管理員立刻知道成功或失敗。
+
+    回傳 True 表示已交給 SMTP relay;未設定 SMTP_HOST 時回傳 False。
+    SMTP 錯誤直接往上拋,由呼叫端轉成錯誤訊息顯示在後台。
+    """
+    email = (order.get("email") or "").strip()
+    if not email or notice not in ADMIN_NOTICES:
+        return False
+    html = (render_order_created(order, items) if notice == "created"
+            else render_payment_success(order))
+    return _send(
+        email,
+        f"【美師傅 meishifu】{ADMIN_NOTICES[notice]} {order['order_no']}",
+        html,
+        # 每次按下都是管理員刻意重寄,故不共用 idempotency key
+        idempotency_key=f"order-notice/{event_id}" if event_id else "",
+    )
 
 
 def render_order_status(order: dict, status: str) -> str:

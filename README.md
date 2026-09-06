@@ -229,6 +229,7 @@ Federation 部署三個 Cloud Run services，不使用長效 GCP JSON key。
 | GET/GET/PATCH | /api/admin/orders … /:id/status | 訂單列表/詳情/狀態更新 (列表可用 `status` / `source` / `q` 篩選) |
 | POST | /api/admin/orders | 手動建立內部訂單 (`source=manual`,不經綠界;限訂單管理員/超管) |
 | GET | /api/admin/fulfillment | 待出貨統計:待處理/已付款訂單的禮盒盒數與換算後的單一產品製作數量 |
+| POST | /api/admin/orders/:id/notify | 手動寄送訂單通知信 (`type`: `created` 訂單成立 / `paid` 付款成功);限訂單管理員/超管 |
 | GET | /api/admin/orders/updates?since_id= | 新訂單輪詢通知 (後台鈴鐺與 Toast) |
 | DELETE | /api/admin/orders/:id | 刪除訂單 (含明細);僅限未付款或狀態為待處理,否則回 400 |
 | GET/POST/PATCH | /api/admin/materials … /:id | 材料查詢與新增/編輯 (含需求預估與狀態) |
@@ -329,6 +330,27 @@ mysql -h <host> -P <port> -u <user> -p <db> < deploy/sql/2026-09-05-orders-manua
   `orders.payment_info`;實際入帳後才會再送一次 `RtnCode=1` 標記已付款。
 - **後台通知**:訂單直接寫入資料庫,後台各頁透過 `admin.js` 每 30 秒輪詢
   `/api/admin/orders/updates`,有新訂單時跳出 Toast 並在頁首鈴鐺顯示未讀數量。
+
+## 訂單通知信
+
+| 觸發時機 | 對象 | 寄送方式 |
+|---|---|---|
+| 前台結帳成立 | 線上訂單 | 自動 (`shop.py` → `send_order_created`) |
+| 狀態改為已出貨 / 已完成 / 已取消 | 所有訂單 | 自動 (`NOTIFIABLE_STATUSES`,經 Cloud Tasks) |
+| 訂單成立、付款成功 | 手動建立的內部訂單為主 | **後台按鈕手動觸發** |
+
+手動建立的訂單不經前台結帳,所以不會自動收到訂單成立信;而「已付款」也刻意
+不放進 `NOTIFIABLE_STATUSES` —— 那一組是狀態一變就自動寄,收現金/轉帳的時間點
+由店家掌握,應該由人決定要不要通知。因此這兩種信改為後台主動寄送:
+
+- **訂單列表「操作」欄的信封圖示** → 寄送訂單成立通知。訂單沒有 Email 時按鈕會停用。
+- **訂單詳情底部** → 可分別寄送「訂單成立」與「付款成功」。
+- **狀態由「待處理」改為「已付款」並按下儲存時** → 跳出「是否寄送信件通知付款成功?」
+  確認視窗。按取消仍會更新狀態,只是不寄信;訂單沒有 Email 時不會跳這個視窗。
+
+寄送為**同步**執行 (不像自動通知走 Cloud Tasks),讓管理員立刻知道成功或失敗:
+SMTP 未設定回 503、寄送失敗回 502,前端都會以 Toast 明確告知。每次按下都會產生
+新的 idempotency key,所以刻意重寄不會被 Resend 去重。
 
 ## 待出貨統計
 
