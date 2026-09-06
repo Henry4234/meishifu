@@ -32,6 +32,9 @@
     href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@100..900&family=Plus+Jakarta+Sans:wght@100..900&display=swap"
     rel="stylesheet" />
   <script src="js/admin.js"></script>
+  <!-- 德佟標籤機:dtpweb 需搭配本機「打印助手」(隨印表機驅動安裝) 才能列印 -->
+  <script src="vendor/dtpweb.js"></script>
+  <script src="js/label-print.js"></script>
   <script defer src="js/admin-anim.js"></script>
 </head>
 
@@ -193,6 +196,59 @@
             class="material-symbols-outlined">close</span></button>
       </div>
       <div id="detail-body"></div>
+    </div>
+  </div>
+  <!-- 列印標籤 Modal (德佟 DP235,經本機 dtpweb 打印助手) -->
+  <div class="hidden fixed inset-0 z-[100] bg-inverse-surface/40 backdrop-blur-sm items-center justify-center p-md"
+    id="print-modal">
+    <div class="bg-surface rounded-2xl shadow-2xl max-w-lg w-full max-h-[88vh] overflow-y-auto p-lg space-y-md">
+      <div class="flex justify-between items-start">
+        <div>
+          <h2 class="font-headline-md text-headline-md text-on-surface">列印訂單標籤</h2>
+          <p class="font-caption text-caption text-on-surface-variant mt-xs" id="print-order-no"></p>
+        </div>
+        <button class="text-on-surface-variant hover:text-error p-1" onclick="closePrintModal()" type="button"><span
+            class="material-symbols-outlined">close</span></button>
+      </div>
+      <!-- 打印助手狀態:沒裝就印不了,要先講清楚 -->
+      <div class="flex items-start gap-sm p-md rounded-lg bg-surface-container-low" id="printer-status">
+        <span class="material-symbols-outlined text-on-surface-variant" id="printer-icon">sync</span>
+        <div class="flex-1">
+          <p class="font-label-md text-label-md text-on-surface" id="printer-state">正在偵測打印助手...</p>
+          <p class="font-caption text-caption text-on-surface-variant mt-xs" id="printer-hint"></p>
+        </div>
+      </div>
+      <label class="flex flex-col gap-xs" id="printer-pick-row">
+        <span class="font-label-md text-label-md text-on-surface">目標印表機</span>
+        <select class="bg-surface-container px-md py-sm rounded-lg focus:outline-none cursor-pointer"
+          id="printer-select"></select>
+      </label>
+      <div>
+        <p class="font-label-md text-label-md text-on-surface mb-xs">將列印以下標籤</p>
+        <div class="divide-y divide-surface-variant" id="print-plan"></div>
+      </div>
+      <p class="hidden font-body-md text-error" id="print-error"></p>
+      <p class="hidden font-caption text-caption text-on-surface bg-surface-container rounded-lg px-md py-sm"
+        id="print-warning"></p>
+      <div class="flex justify-end gap-sm pt-xs">
+        <button class="px-md py-sm rounded-full font-label-md text-label-md hover:bg-surface-container-high"
+          onclick="closePrintModal()" type="button">取消</button>
+        <button
+          class="flex items-center gap-xs bg-surface-container text-on-surface font-label-md text-label-md px-md py-sm rounded-full hover:bg-surface-container-high transition-all disabled:opacity-50"
+          id="print-preview-btn" type="button">
+          <span class="material-symbols-outlined text-[18px]">visibility</span>預覽
+        </button>
+        <button
+          class="flex items-center gap-xs bg-primary text-on-primary font-label-md text-label-md px-lg py-sm rounded-full hover:shadow-md transition-all disabled:opacity-50"
+          id="print-submit" type="button">
+          <span class="material-symbols-outlined text-[18px]">print</span>開始列印
+        </button>
+      </div>
+      <!-- 預覽圖:實際送紙前先看一眼,避免印壞整捲標籤 -->
+      <div class="hidden flex-col gap-sm pt-sm border-t border-surface-variant" id="preview-box">
+        <p class="font-label-md text-label-md text-on-surface">預覽</p>
+        <div class="flex flex-wrap gap-sm" id="preview-images"></div>
+      </div>
     </div>
   </div>
   <!-- 手動建立訂單 Modal (不經綠界金流,僅計入成本與材料需求) -->
@@ -357,6 +413,7 @@
           <td class="py-sm px-md">${statusBadge(o.status)}</td>
           <td class="py-sm px-md text-right">
             <button class="p-xs text-on-surface-variant hover:text-primary transition-colors" onclick="showDetail(${o.id})" title="查看詳情"><span class="material-symbols-outlined text-[20px]">visibility</span></button>
+            <button class="p-xs text-on-surface-variant hover:text-primary transition-colors" onclick="openPrintModal(${o.id})" title="列印訂單標籤"><span class="material-symbols-outlined text-[20px]">print</span></button>
             ${o.email
               ? `<button class="p-xs text-on-surface-variant hover:text-secondary transition-colors" onclick="sendNotice(${o.id}, 'created')" title="寄送訂單通知信至 ${o.email}"><span class="material-symbols-outlined text-[20px]">mail</span></button>`
               : '<button class="p-xs text-outline-variant cursor-not-allowed" disabled title="此訂單沒有 Email,無法寄送通知信"><span class="material-symbols-outlined text-[20px]">mail_off</span></button>'}
@@ -686,6 +743,243 @@
       modal.classList.add("hidden");
       modal.classList.remove("flex");
     }
+
+    /* ---------- 列印標籤 (德佟 DP235) ----------
+       dtpweb 走「瀏覽器 → 本機打印助手」,印表機接在操作人員這台電腦上,
+       所以整段流程都在前端;後端只提供訂單資料。標籤模板放在 admin/labels/,
+       任何一台後台電腦都抓得到,不必各自維護本機的微打資料夾。 */
+    const NUTRITION_LABELS = ["享味禮盒", "品味禮盒", "巧味禮盒", "珍味禮盒", "美味禮盒", "賞味禮盒"];
+    const PRINT_ACTION_PREVIEW = 0x0002;   // 回傳 base64 預覽圖,不出紙
+
+    let printApi = null;          // dtpweb 介面,checkServer 成功後才有值
+    let printOrder = null;        // 目前要列印的訂單
+    let printPlan = null;         // 要印哪些標籤、各幾份
+    let printLabels = [];         // 已填好值的標籤 [{job, template, orientation}]
+    const templateCache = new Map();
+
+    async function loadTemplate(file) {
+      if (!templateCache.has(file)) {
+        const res = await fetch(file);
+        if (!res.ok) throw new Error(`讀取標籤模板失敗 (${file})`);
+        templateCache.set(file, await res.json());
+      }
+      // 每次都給一份複本,填值不會污染快取
+      return JSON.parse(JSON.stringify(templateCache.get(file)));
+    }
+
+    function setPrinterState(icon, state, hint, ok) {
+      document.getElementById("printer-icon").textContent = icon;
+      document.getElementById("printer-icon").className =
+        "material-symbols-outlined " + (ok ? "text-tertiary" : "text-error");
+      document.getElementById("printer-state").textContent = state;
+      document.getElementById("printer-hint").textContent = hint || "";
+      document.getElementById("print-submit").disabled = !ok;
+      document.getElementById("print-preview-btn").disabled = !ok;
+      document.getElementById("printer-pick-row").classList.toggle("hidden", !ok);
+    }
+
+    /* 偵測本機打印助手並列出印表機 */
+    function detectPrinter() {
+      return new Promise((resolve) => {
+        if (typeof dtpweb === "undefined") {
+          setPrinterState("error", "找不到 dtpweb 元件", "請確認 vendor/dtpweb.js 已正確載入。", false);
+          return resolve(false);
+        }
+        dtpweb.checkServer((resp, api) => {
+          if (!resp || resp.statusCode !== 0) {
+            setPrinterState("print_disabled", "未偵測到打印助手",
+              "請在這台電腦安裝德佟 DP235 印表機驅動 (內含 dtpweb 打印助手) 後重新整理。", false);
+            return resolve(false);
+          }
+          printApi = api;
+          api.getPrinters((printers) => {
+            const list = Array.isArray(printers) ? printers : [];
+            const select = document.getElementById("printer-select");
+            select.innerHTML = list.length
+              ? list.map((p) => {
+                  const name = typeof p === "string" ? p : (p.name || p.printerName || "");
+                  return `<option value="${name}">${name}</option>`;
+                }).join("")
+              : '<option value="">(使用預設印表機)</option>';
+            setPrinterState("check_circle", "打印助手已就緒",
+              list.length ? `偵測到 ${list.length} 台印表機` : "未偵測到印表機,將使用預設裝置", true);
+            resolve(true);
+          });
+        });
+      });
+    }
+
+    function renderPrintPlan(plan, labels) {
+      document.getElementById("print-plan").innerHTML = labels.map(({ job, template, orientation }) => {
+        const size = `${template.labelWidth} × ${template.labelHeight} mm`;
+        const rotate = orientation
+          ? `<span class="inline-flex items-center gap-1 text-primary"><span class="material-symbols-outlined text-[14px]">rotate_90_degrees_cw</span>旋轉 ${orientation}° 以符合 ${LABEL_STOCK.width}×${LABEL_STOCK.height} 標籤紙</span>`
+          : "";
+        return `
+        <div class="flex items-center justify-between py-sm gap-sm">
+          <div class="min-w-0">
+            <p class="font-body-md text-body-md text-on-surface">${job.title}</p>
+            <p class="font-caption text-caption text-on-surface-variant">${size} ${rotate}</p>
+          </div>
+          <span class="font-headline-md text-headline-md text-primary shrink-0">${job.copies}<span
+            class="font-caption text-caption text-on-surface-variant ml-1">張</span></span>
+        </div>`;
+      }).join("");
+
+      const notes = [];
+      if (plan.missingLabels.length) {
+        notes.push(`以下禮盒沒有對應的營養標示模板,不會列印:${plan.missingLabels.join("、")}。` +
+          `請在微打設計標籤後,以相同名稱放進 admin/labels/。`);
+      }
+      // 尺寸對不上又轉不過來的,只能重做模板
+      const badSize = labels.filter((l) => l.orientation === null);
+      if (badSize.length) {
+        notes.push(`以下標籤的尺寸與 ${LABEL_STOCK.width}×${LABEL_STOCK.height} mm 標籤紙不符,` +
+          `且無法靠旋轉解決,請在微打調整模板尺寸:` +
+          badSize.map((l) => `${l.job.label} (${l.template.labelWidth}×${l.template.labelHeight})`).join("、"));
+      }
+      const warn = document.getElementById("print-warning");
+      warn.textContent = notes.join(" ");
+      warn.classList.toggle("hidden", !notes.length);
+    }
+
+    async function openPrintModal(id) {
+      const errEl = document.getElementById("print-error");
+      errEl.classList.add("hidden");
+      document.getElementById("preview-box").classList.add("hidden");
+      document.getElementById("preview-images").innerHTML = "";
+      try {
+        printOrder = await adminFetch("/admin/orders/" + id);
+      } catch (err) {
+        adminToast("無法載入訂單:" + err.message, true);
+        return;
+      }
+      printPlan = buildPrintPlan(printOrder, NUTRITION_LABELS);
+      document.getElementById("print-order-no").textContent =
+        `訂單 #${printOrder.order_no} · ${printOrder.customer_name} · 共 ${printPlan.totalLabels} 張標籤`;
+      // 先把模板讀進來填好值:旋轉角度與缺漏欄位都要在按下列印前就看得到
+      try {
+        printLabels = await buildLabels();
+      } catch (err) {
+        printLabels = [];
+        errEl.textContent = err.message;
+        errEl.classList.remove("hidden");
+      }
+      renderPrintPlan(printPlan, printLabels);
+
+      const modal = document.getElementById("print-modal");
+      modal.classList.remove("hidden");
+      modal.classList.add("flex");
+      setPrinterState("sync", "正在偵測打印助手...", "", false);
+      detectPrinter();
+    }
+
+    function closePrintModal() {
+      const modal = document.getElementById("print-modal");
+      modal.classList.add("hidden");
+      modal.classList.remove("flex");
+    }
+
+    /* 依列印計畫把每張標籤填好值,回傳 [{job, template}] */
+    async function buildLabels() {
+      const values = orderLabelValues(printOrder);
+      const itemsText = formatOrderItems(printOrder.items);
+      const labels = [];
+      for (const job of printPlan.jobs) {
+        const raw = await loadTemplate(job.file);
+        const opts = job.kind === "order" ? { itemsText } : {};
+        const { template, missing } = fillTemplate(raw, values, opts);
+        if (missing.length) {
+          // 模板改過但程式沒跟上時,寧可擋下來也不要印出開天窗的標籤
+          throw new Error(`標籤「${job.label}」有未填欄位:${missing.join("、")}`);
+        }
+        // 訂單資訊模板是 40×60 直向,標籤紙是 60×40 橫向,要轉 90° 才貼得上
+        labels.push({ job, template, orientation: orientationFor(template) });
+      }
+      return labels;
+    }
+
+    function printerName() {
+      return document.getElementById("printer-select").value || undefined;
+    }
+
+    /* 送出一張標籤;action 帶 PRINT_ACTION_PREVIEW 時只取預覽圖不出紙。
+
+       orientation 由打印助手做整頁旋轉 (SDK 的 rotateRect 只會把單一元件的長寬互換,
+       不是整頁旋轉,無法用來把直向標籤轉到橫向紙上)。
+       jobInfo 的合併順序是 {...模板, ...我方},所以這裡指定的值會蓋過模板的設定。 */
+    function sendLabel(template, copies, orientation, action) {
+      return new Promise((resolve, reject) => {
+        const jobInfo = { copies };
+        if (orientation) jobInfo.orientation = orientation;
+        const options = {
+          wdfData: template,                       // 微打模板物件,SDK 會轉成 jobInfo/jobPages
+          printerInfo: { printerName: printerName() },
+          jobInfo,
+          callback: (result) => {
+            if (result && result.statusCode === 0) resolve(result.value || {});
+            else reject(new Error((result && result.statusMessage) || "列印失敗"));
+          },
+        };
+        if (action) options.action = action;
+        printApi.print(options);
+      });
+    }
+
+    async function runPrint(preview) {
+      const errEl = document.getElementById("print-error");
+      errEl.classList.add("hidden");
+      const btn = document.getElementById(preview ? "print-preview-btn" : "print-submit");
+      btn.disabled = true;
+      try {
+        const labels = printLabels.length ? printLabels : await buildLabels();
+        if (preview) {
+          const box = document.getElementById("preview-images");
+          box.innerHTML = "";
+          for (const { job, template, orientation } of labels) {
+            const r = await sendLabel(template, 1, orientation, PRINT_ACTION_PREVIEW);
+            const src = (r.previewImages && r.previewImages[0]) || r.previewImage;
+            if (!src) {
+              box.insertAdjacentHTML("beforeend",
+                `<p class="font-caption text-on-surface-variant">${job.title}:此版本打印助手未回傳預覽圖</p>`);
+              continue;
+            }
+            /* 預覽圖一律是未旋轉的版面 —— SDK 在 action 含預覽位元時會把 orientation
+               從請求中移除 (134 & action)。因此這裡用 CSS 自行轉,讓畫面與實際出紙一致。 */
+            const rotated = orientation === 90;
+            const style = rotated
+              ? 'style="max-height:200px;transform:rotate(90deg)"'
+              : 'style="max-height:200px"';
+            box.insertAdjacentHTML("beforeend", `
+              <figure class="text-center ${rotated ? "py-lg px-md" : ""}">
+                <img alt="${job.title}" class="border border-outline-variant rounded" ${style} src="${src}"/>
+                <figcaption class="font-caption text-caption text-on-surface-variant mt-xs">
+                  ${job.title}${rotated ? " (已模擬旋轉 90°)" : ""}
+                </figcaption>
+              </figure>`);
+          }
+          document.getElementById("preview-box").classList.remove("hidden");
+          document.getElementById("preview-box").classList.add("flex");
+        } else {
+          for (const { job, template, orientation } of labels) {
+            await sendLabel(template, job.copies, orientation);
+          }
+          adminToast(`已送出 ${printPlan.totalLabels} 張標籤至印表機`);
+          closePrintModal();
+        }
+      } catch (err) {
+        errEl.textContent = err.message;
+        errEl.classList.remove("hidden");
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    document.getElementById("print-submit").addEventListener("click", () => runPrint(false));
+    document.getElementById("print-preview-btn").addEventListener("click", () => runPrint(true));
+    document.getElementById("print-modal").addEventListener("click", (e) => {
+      if (e.target === e.currentTarget) closePrintModal();
+    });
 
     let searchTimer;
     document.getElementById("search-input").addEventListener("input", () => {

@@ -331,6 +331,84 @@ mysql -h <host> -P <port> -u <user> -p <db> < deploy/sql/2026-09-05-orders-manua
 - **後台通知**:訂單直接寫入資料庫,後台各頁透過 `admin.js` 每 30 秒輪詢
   `/api/admin/orders/updates`,有新訂單時跳出 Toast 並在頁首鈴鐺顯示未讀數量。
 
+## 訂單標籤列印 (德佟 DP235)
+
+訂單列表「操作」欄的印表機圖示會開啟列印視窗,一次印出兩種標籤:
+
+| 標籤 | 模板尺寸 | 旋轉 | 份數 | 內容 |
+|---|---|---|---|---|
+| 訂單資訊 | 40 × 60 mm | **90°** | 每張訂單 1 張 | 訂購人、訂購單號、寄送方式、超商名稱、訂單品項 |
+| 營養標示 | 60 × 40 mm | 不旋轉 | 依該款禮盒的訂購盒數 | 每款禮盒各一種固定內容的標籤 |
+
+### 標籤紙方向
+
+實際使用的標籤紙是 **60 × 40 mm (橫向)**,定義在 `label-print.js` 的 `LABEL_STOCK`,
+換紙時只要改這個常數。
+
+訂單資訊模板是 40 × 60 直向,**不會自動旋轉**,必須明確指定方向:
+`api.print()` 時帶入 `jobInfo.orientation = 90`,由本機打印助手做整頁旋轉。
+`orientationFor()` 會比對模板與標籤紙尺寸自動決定 0° / 90°,尺寸真的對不上
+(例如 50×30) 則回 `null`,前端會提示要重做模板而不是硬印。
+
+> SDK 內建的 `LPAUtils.rotateRect()` **不能**用來做這件事 —— 它只是把單一元件的
+> 長寬繞自身中心互換,不是整頁旋轉,無法把直向版面轉到橫向紙上。
+
+**預覽圖不會反映旋轉**:SDK 在 `action` 含預覽位元時會把 `orientation` 從請求中
+移除 (`134 & action`)。因此預覽圖是用 CSS `transform: rotate(90deg)` 自行轉的,
+並在圖說標示「已模擬旋轉 90°」,讓畫面與實際出紙一致。
+
+### 架構
+
+```
+瀏覽器 (admin/orders.html)
+  → vendor/dtpweb.js          瀏覽器端 SDK
+  → 本機 dtpweb 打印助手        隨德佟印表機驅動一起安裝,監聽 localhost
+  → DP235 標籤機
+```
+
+`dtpweb` 是「瀏覽器 → 本機打印助手」的橋接,**印表機接在操作人員自己的電腦上**,
+因此列印全程在前端執行,後端只透過 `/api/admin/orders/:id` 提供訂單資料。
+
+標籤模板是微打 (DothanTech) 匯出的 JSON,放在 `admin/labels/`,由網站一併提供 ——
+不能只放在某台電腦的 `E:\微打`,否則換一台後台電腦就印不出來。
+
+| 檔案 | 說明 |
+|---|---|
+| `admin/labels/訂單資訊.json` | 訂單標籤,含 4 個綁定欄位 |
+| `admin/labels/<禮盒名>.json` | 營養標示,固定內容;檔名須與 `package.name` **完全相同** |
+| `admin/vendor/dtpweb.js` | 微打 Web SDK 瀏覽器版 (v2.7.260512) |
+| `admin/js/label-print.js` | 模板填值與列印計畫 (純邏輯,有測試) |
+
+### 資料填入方式
+
+模板裡的儲存格 `contentType: 2` + `dataColumnName` 代表綁定資料來源。
+程式**直接把綁定格改寫成固定文字** (`contentType: 0` + `content`),
+結果才不會受打印助手如何解析資料來源影響:
+
+| dataColumnName | 來源 |
+|---|---|
+| `customer_name` | 訂購人 |
+| `order_no` | 訂單編號 |
+| `shipping_method` | `shipping_label` (宅配到府 / 全家店到店 / 7-11 交貨便) |
+| `store_id` | `門市名稱 (店號)`;非超商取貨顯示 `-` |
+
+訂單品項沒有綁定欄位,寫進表格中合併的那一格 (`group` 的 `5,3,7,5`,即 `Cells[22]`,
+跨 3 列約 20mm),格式為每行一款 `禮盒名 * 數量`,並開啟 `autoReturn` 讓過長內容換行。
+
+送印時呼叫 `api.print({ wdfData: <填好的模板物件>, jobInfo: { copies }, printerInfo })` ——
+SDK 的 `updateWDJOptions()` 會把 `labelName/labelWidth/labelHeight` 轉成
+`jobName/jobWidth/jobHeight`,不需要自己重畫版面。
+
+### 防呆
+
+- 打印助手沒安裝時,視窗會明確說明要安裝驅動,列印按鈕停用。
+- 模板改過而程式沒跟上 (出現未填的綁定欄位) 會**中止列印**,不會印出開天窗的標籤。
+- 禮盒找不到同名的營養標示模板時會列在警告區,而不是默默少印。
+- 「預覽」按鈕用 `action: 0x0002` 取回 base64 圖檔,不出紙 —— 送紙前先確認版面。
+
+> 新增禮盒時記得在微打設計營養標示,並以**與禮盒完全相同的名稱**匯出到 `admin/labels/`,
+> 同時更新 `orders.html` 的 `NUTRITION_LABELS` 清單。
+
 ## 訂單通知信
 
 | 觸發時機 | 對象 | 寄送方式 |
