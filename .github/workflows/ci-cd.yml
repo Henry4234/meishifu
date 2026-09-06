@@ -86,11 +86,13 @@ jobs:
             --experimental-test-coverage \
             --test-coverage-lines=70 \
             --test-coverage-include='admin/js/admin.js' \
+            --test-coverage-include='admin/js/label-print.js' \
             --test-reporter=spec \
             --test-reporter=lcov \
             --test-reporter-destination=stdout \
             --test-reporter-destination=admin/coverage/lcov.info \
-            admin/tests/admin.test.js
+            admin/tests/admin.test.js \
+            admin/tests/label-print.test.js
 
       - name: Read admin coverage percentage
         id: coverage
