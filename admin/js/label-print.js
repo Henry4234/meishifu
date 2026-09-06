@@ -13,6 +13,28 @@
 const LABEL_DIR = "labels";
 const ORDER_LABEL = "訂單資訊";
 
+/* 實際使用的標籤紙規格 (mm)。換紙時只要改這裡。
+   營養標示模板本來就是 60×40,訂單資訊模板是 40×60 (直向),
+   直接印會超出紙張,必須旋轉 90° 才貼得上這捲紙。 */
+const LABEL_STOCK = { width: 60, height: 40 };
+const SIZE_TOLERANCE = 0.5;   // mm,模板尺寸可能有小數誤差
+
+const near = (a, b) => Math.abs(a - b) <= SIZE_TOLERANCE;
+
+/**
+ * 這張標籤要旋轉幾度才貼合標籤紙?
+ *   0    尺寸相符,不旋轉
+ *   90   模板與標籤紙長寬相反,轉 90° 後相符
+ *   null 尺寸對不上,光靠旋轉解決不了 (模板要重做)
+ */
+function orientationFor(template, stock = LABEL_STOCK) {
+  const w = template.labelWidth;
+  const h = template.labelHeight;
+  if (near(w, stock.width) && near(h, stock.height)) return 0;
+  if (near(w, stock.height) && near(h, stock.width)) return 90;
+  return null;
+}
+
 /* 微打標籤格式的 contentType:0 = 固定文字,2 = 綁定資料來源欄位。
    我們直接把綁定格改寫成固定文字,結果才不依賴打印助手怎麼解析資料來源。 */
 const CONTENT_STATIC = 0;
@@ -143,6 +165,8 @@ if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     LABEL_DIR,
     ORDER_LABEL,
+    LABEL_STOCK,
+    orientationFor,
     ITEMS_CELL_INDEX,
     CONTENT_STATIC,
     CONTENT_BOUND,

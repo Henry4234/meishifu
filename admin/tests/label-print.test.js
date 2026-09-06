@@ -119,6 +119,37 @@ test("沒有營養標示模板的禮盒要被列出,而不是默默略過", () =
   assert.equal(plan.totalLabels, 1);
 });
 
+test("標籤紙是 60x40:訂單資訊要轉 90 度,營養標示不用轉", () => {
+  // 這正是實際遇到的問題:訂單資訊模板是直向 40x60,不轉的話印不進橫向標籤紙
+  const order = loadLabel(lp.ORDER_LABEL);
+  assert.equal(order.labelWidth, 40);
+  assert.equal(order.labelHeight, 60);
+  assert.equal(lp.orientationFor(order), 90);
+
+  NUTRITION.forEach((name) => {
+    assert.equal(lp.orientationFor(loadLabel(name)), 0, `${name} 尺寸相符,不該旋轉`);
+  });
+
+  assert.deepEqual(lp.LABEL_STOCK, { width: 60, height: 40 });
+});
+
+test("orientationFor 的判斷與容錯", () => {
+  const stock = { width: 60, height: 40 };
+  assert.equal(lp.orientationFor({ labelWidth: 60, labelHeight: 40 }, stock), 0);
+  assert.equal(lp.orientationFor({ labelWidth: 40, labelHeight: 60 }, stock), 90);
+  // 微打匯出的尺寸可能帶小數,0.5mm 內視為相符
+  assert.equal(lp.orientationFor({ labelWidth: 60.3, labelHeight: 39.8 }, stock), 0);
+  assert.equal(lp.orientationFor({ labelWidth: 39.7, labelHeight: 60.2 }, stock), 90);
+  // 尺寸真的對不上時回 null,讓前端提示要重做模板,而不是硬印
+  assert.equal(lp.orientationFor({ labelWidth: 50, labelHeight: 30 }, stock), null);
+  assert.equal(lp.orientationFor({ labelWidth: 60, labelHeight: 60 }, stock), null);
+
+  // 換成直向標籤紙時,結論要跟著反過來
+  const portrait = { width: 40, height: 60 };
+  assert.equal(lp.orientationFor({ labelWidth: 40, labelHeight: 60 }, portrait), 0);
+  assert.equal(lp.orientationFor({ labelWidth: 60, labelHeight: 40 }, portrait), 90);
+});
+
 test("每個營養標示模板都是有效的 60x40mm 標籤且無未填欄位", () => {
   NUTRITION.forEach((name) => {
     const t = loadLabel(name);
