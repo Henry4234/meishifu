@@ -536,6 +536,53 @@ def test_payment_status_and_mock_pay(client, monkeypatch):
     assert client.post("/api/payment/mock-pay", json={"order_no": "MS1"}).status_code == 404
 
 
+def test_shipped_mail_carries_logistics_number():
+    """出貨通知信要帶上物流編號:顧客靠它追蹤或取貨。"""
+    base = {
+        "order_no": "MS1", "customer_name": "王小明", "phone": "0912",
+        "email": "buyer@example.com", "address": "台北市信義區", "store_name": "",
+        "shipping_method": "delivery", "payment_method": "credit",
+    }
+
+    # 宅配:托運單號,用配送用語
+    home = mailer.render_order_status({**base, "logistics_no": "TCAT0912345678"}, "shipped")
+    assert "宅配托運單號" in home and "TCAT0912345678" in home
+    assert "門市取貨" not in home
+
+    # 7-11:寄貨編號 + 驗證碼,兩者缺一顧客都領不到貨
+    unimart = mailer.render_order_status({
+        **base, "shipping_method": "unimart", "store_name": "美麗門市", "store_id": "991182",
+        "logistics_no": "F2508270001", "logistics_validation_no": "4823"}, "shipped")
+    assert "7-11 寄貨編號" in unimart and "F2508270001" in unimart
+    assert "取貨驗證碼" in unimart and "4823" in unimart
+    assert "門市取貨" in unimart
+
+    # 全家:只有寄貨編號,不該憑空生出驗證碼欄位
+    fami = mailer.render_order_status({
+        **base, "shipping_method": "fami", "store_name": "全家台北信義店",
+        "logistics_no": "FM99887766"}, "shipped")
+    assert "全家寄貨編號" in fami and "FM99887766" in fami
+    assert "取貨驗證碼" not in fami
+
+    # 沒有編號時不留空欄位;已完成/已取消的信也不該出現物流區塊
+    assert "托運單號" not in mailer.render_order_status(base, "shipped")
+    assert "托運單號" not in mailer.render_order_status(
+        {**base, "logistics_no": "TCAT1"}, "completed")
+
+    # HTML 轉義:編號來自人工輸入,不能讓它破壞版面
+    evil = mailer.render_order_status({**base, "logistics_no": "<script>x</script>"}, "shipped")
+    assert "<script>x</script>" not in evil and "&lt;script&gt;" in evil
+
+
+def test_logistics_lines_edge_cases():
+    assert mailer.logistics_lines({"logistics_no": ""}) == ""
+    assert mailer.logistics_lines({"logistics_no": "   "}) == ""
+    assert mailer.logistics_lines({}) == ""
+    # 未知的配送方式退回通用名稱,不會噴錯
+    assert "物流編號" in mailer.logistics_lines(
+        {"logistics_no": "X1", "shipping_method": "unknown"})
+
+
 def test_mailer_renders_and_skips_without_smtp(monkeypatch):
     order = {
         "order_no": "MS1", "customer_name": "王小明", "phone": "0912",

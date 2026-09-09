@@ -198,6 +198,58 @@
       <div id="detail-body"></div>
     </div>
   </div>
+  <!-- 出貨登錄 Modal:改為「已出貨」前必須填寫物流編號 -->
+  <div class="hidden fixed inset-0 z-[110] bg-inverse-surface/40 backdrop-blur-sm items-center justify-center p-md"
+    id="ship-modal">
+    <div class="bg-surface rounded-2xl shadow-2xl max-w-md w-full p-lg space-y-md">
+      <div class="flex justify-between items-start">
+        <div>
+          <h2 class="font-headline-md text-headline-md text-on-surface">登錄物流編號</h2>
+          <p class="font-caption text-caption text-on-surface-variant mt-xs" id="ship-order-no"></p>
+        </div>
+        <button class="text-on-surface-variant hover:text-error p-1" onclick="closeShipModal()" type="button"><span
+            class="material-symbols-outlined">close</span></button>
+      </div>
+      <div class="flex items-start gap-sm p-md rounded-lg bg-surface-container-low">
+        <span class="material-symbols-outlined text-secondary">local_shipping</span>
+        <div>
+          <p class="font-label-md text-label-md text-on-surface" id="ship-method"></p>
+          <p class="font-caption text-caption text-on-surface-variant mt-xs" id="ship-destination"></p>
+        </div>
+      </div>
+      <form class="space-y-md" id="ship-form">
+        <label class="flex flex-col gap-xs">
+          <span class="font-label-md text-label-md text-on-surface">
+            <span id="ship-no-label">物流編號</span> <span class="text-error">*</span>
+          </span>
+          <input class="bg-surface-container px-md py-sm rounded-lg focus:outline-none focus:ring-1 focus:ring-primary"
+            id="ship-no" maxlength="30" required type="text" />
+          <span class="font-caption text-caption text-on-surface-variant" id="ship-no-hint"></span>
+        </label>
+        <!-- 7-11 交貨便才需要驗證碼,顧客取貨時要一併出示 -->
+        <label class="hidden flex-col gap-xs" id="ship-validation-row">
+          <span class="font-label-md text-label-md text-on-surface">取貨驗證碼</span>
+          <input class="bg-surface-container px-md py-sm rounded-lg focus:outline-none focus:ring-1 focus:ring-primary"
+            id="ship-validation-no" maxlength="20" type="text" />
+          <span class="font-caption text-caption text-on-surface-variant">
+            7-11 交貨便的 CVSValidationNo,顧客取貨時需一併出示,建議填寫。
+          </span>
+        </label>
+        <p class="font-caption text-caption text-on-surface-variant bg-surface-container rounded-lg px-md py-sm"
+          id="ship-mail-hint"></p>
+        <p class="hidden font-body-md text-error" id="ship-error"></p>
+        <div class="flex justify-end gap-sm pt-xs">
+          <button class="px-md py-sm rounded-full font-label-md text-label-md hover:bg-surface-container-high"
+            onclick="closeShipModal()" type="button">取消</button>
+          <button
+            class="flex items-center gap-xs bg-primary text-on-primary font-label-md text-label-md px-lg py-sm rounded-full hover:shadow-md transition-all disabled:opacity-60"
+            id="ship-submit" type="submit">
+            <span class="material-symbols-outlined text-[18px]">local_shipping</span>確認出貨
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
   <!-- 列印標籤 Modal (德佟 DP235,經本機 dtpweb 打印助手) -->
   <div class="hidden fixed inset-0 z-[100] bg-inverse-surface/40 backdrop-blur-sm items-center justify-center p-md"
     id="print-modal">
@@ -636,9 +688,12 @@
       } catch (err) { adminToast(err.message, true); }
     }
 
+    let detailOrder = null;   // 詳情視窗目前顯示的訂單,出貨登錄視窗沿用
+
     async function showDetail(id) {
       try {
         const o = await adminFetch("/admin/orders/" + id);
+        detailOrder = o;
         const destination = o.store_name
           ? `${o.store_name}${o.store_id ? " (" + o.store_id + ")" : ""}` +
             (o.store_address ? `<br><span class="text-on-surface-variant">${o.store_address}</span>` : "")
@@ -657,6 +712,9 @@
         ${o.note ? `<div class="flex justify-between gap-md"><span class="text-on-surface-variant shrink-0">備註</span><span class="text-right">${o.note}</span></div>` : ""}
         ${o.payment_info ? `<div class="flex justify-between gap-md"><span class="text-on-surface-variant shrink-0">繳費資訊</span><span class="text-right">${o.payment_info}</span></div>` : ""}
         ${o.paid_at ? `<div class="flex justify-between"><span class="text-on-surface-variant">付款時間</span><span>${o.paid_at}</span></div>` : ""}
+        ${o.logistics_no ? `<div class="flex justify-between"><span class="text-on-surface-variant">${o.logistics_label}</span><span class="font-label-md text-primary">${o.logistics_no}</span></div>` : ""}
+        ${o.logistics_validation_no ? `<div class="flex justify-between"><span class="text-on-surface-variant">取貨驗證碼</span><span class="font-label-md text-primary">${o.logistics_validation_no}</span></div>` : ""}
+        ${o.shipped_at ? `<div class="flex justify-between"><span class="text-on-surface-variant">出貨時間</span><span>${o.shipped_at}</span></div>` : ""}
         <div class="h-px bg-surface-variant my-sm"></div>
         <table class="w-full text-left">
           <thead><tr class="font-label-md text-label-md text-on-surface-variant"><th class="py-xs">商品</th><th class="py-xs text-center">數量</th><th class="py-xs text-right">小計</th></tr></thead>
@@ -720,6 +778,13 @@
       const previous = select.dataset.current;
       const hasEmail = select.dataset.hasEmail === "1";
 
+      // 改為「已出貨」要先登錄物流編號 —— 出貨通知信會帶上這組號碼,
+      // 沒有的話顧客追蹤不到也領不到貨,所以在這裡擋下並跳出登錄視窗。
+      if (status === "shipped") {
+        openShipModal(id);
+        return;
+      }
+
       // 第一次由「待處理」改為「已付款」時,詢問是否一併通知顧客
       let notifyPaid = false;
       if (previous === "pending" && status === "paid" && hasEmail) {
@@ -737,6 +802,92 @@
         if (notifyPaid) await sendNotice(id, "paid", true);
       } catch (err) { adminToast(err.message, true); }
     }
+
+    /* ---------- 出貨登錄 ----------
+       物流編號的名稱依配送方式而異 (宅配是托運單號、店到店是超商寄貨編號),
+       由後端提供 logistics_label,前後端不會各自寫死一套說法。 */
+    let shipOrder = null;
+
+    function openShipModal(id) {
+      // showDetail 已把整筆訂單抓下來,這裡沿用同一份資料
+      shipOrder = detailOrder && detailOrder.id === id ? detailOrder : null;
+      if (!shipOrder) {
+        adminToast("請先開啟訂單詳情再變更狀態", true);
+        return;
+      }
+      document.getElementById("ship-order-no").textContent =
+        `訂單 #${shipOrder.order_no} · ${shipOrder.customer_name}`;
+      document.getElementById("ship-method").textContent = shipOrder.shipping_label;
+      document.getElementById("ship-destination").textContent = shipOrder.store_name
+        ? `${shipOrder.store_name}${shipOrder.store_id ? " (" + shipOrder.store_id + ")" : ""}`
+        : (shipOrder.address || "-");
+      document.getElementById("ship-no-label").textContent = shipOrder.logistics_label;
+      document.getElementById("ship-no").value = shipOrder.logistics_no || "";
+      document.getElementById("ship-no-hint").textContent =
+        `於綠界物流建立門市訂單後取得,${shipOrder.needs_validation_no ? "連同驗證碼" : "此號碼"}會寫入出貨通知信。`;
+
+      const vRow = document.getElementById("ship-validation-row");
+      vRow.classList.toggle("hidden", !shipOrder.needs_validation_no);
+      vRow.classList.toggle("flex", !!shipOrder.needs_validation_no);
+      document.getElementById("ship-validation-no").value = shipOrder.logistics_validation_no || "";
+
+      document.getElementById("ship-mail-hint").textContent = shipOrder.email
+        ? `確認後會自動寄出貨通知信至 ${shipOrder.email},信中包含上述編號。`
+        : "此訂單沒有 Email,不會寄送出貨通知信。";
+      document.getElementById("ship-error").classList.add("hidden");
+
+      const modal = document.getElementById("ship-modal");
+      modal.classList.remove("hidden");
+      modal.classList.add("flex");
+      document.getElementById("ship-no").focus();
+    }
+
+    function closeShipModal() {
+      const modal = document.getElementById("ship-modal");
+      modal.classList.add("hidden");
+      modal.classList.remove("flex");
+    }
+
+    async function submitShip(e) {
+      e.preventDefault();
+      const errEl = document.getElementById("ship-error");
+      errEl.classList.add("hidden");
+      const logisticsNo = document.getElementById("ship-no").value.trim();
+      if (!logisticsNo) {
+        errEl.textContent = `請填寫${shipOrder.logistics_label}後才能改為已出貨。`;
+        errEl.classList.remove("hidden");
+        return;
+      }
+      const btn = document.getElementById("ship-submit");
+      btn.disabled = true;
+      try {
+        const r = await adminFetch(`/admin/orders/${shipOrder.id}/status`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            status: "shipped",
+            logistics_no: logisticsNo,
+            logistics_validation_no: document.getElementById("ship-validation-no").value.trim(),
+          }),
+        });
+        closeShipModal();
+        closeModal();
+        loadOrders();
+        refreshFulfillment();
+        adminToast(r.notification === "skipped"
+          ? `已標記為出貨 (${logisticsNo});此訂單未寄送通知信`
+          : `已標記為出貨 (${logisticsNo}),出貨通知信已送出`);
+      } catch (err) {
+        errEl.textContent = err.message;
+        errEl.classList.remove("hidden");
+      } finally {
+        btn.disabled = false;
+      }
+    }
+
+    document.getElementById("ship-form").addEventListener("submit", submitShip);
+    document.getElementById("ship-modal").addEventListener("click", (e) => {
+      if (e.target === e.currentTarget) closeShipModal();
+    });
 
     function closeModal() {
       const modal = document.getElementById("detail-modal");

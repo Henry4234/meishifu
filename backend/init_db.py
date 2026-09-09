@@ -94,6 +94,10 @@ SCHEMA = [
         trade_no VARCHAR(32) DEFAULT '',
         payment_info VARCHAR(255) DEFAULT '',
         paid_at DATETIME DEFAULT NULL,
+        -- 物流編號:宅配為托運單號,店到店為超商寄貨編號;7-11 另有驗證碼
+        logistics_no VARCHAR(30) NOT NULL DEFAULT '',
+        logistics_validation_no VARCHAR(20) NOT NULL DEFAULT '',
+        shipped_at DATETIME DEFAULT NULL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     """,
@@ -176,6 +180,11 @@ ORDER_COLUMNS = [
     ("trade_no", "VARCHAR(32) DEFAULT '' AFTER note"),           # 綠界交易編號
     ("payment_info", "VARCHAR(255) DEFAULT '' AFTER trade_no"),  # ATM 虛擬帳號等資訊
     ("paid_at", "DATETIME DEFAULT NULL AFTER payment_info"),
+    # 物流編號:宅配為托運單號 (BookingNote),店到店為超商寄貨編號 (CVSPaymentNo)
+    ("logistics_no", "VARCHAR(30) NOT NULL DEFAULT '' AFTER paid_at"),
+    # 7-11 交貨便的驗證碼 (CVSValidationNo)。全家/宅配沒有這個號碼,存空字串。
+    ("logistics_validation_no", "VARCHAR(20) NOT NULL DEFAULT '' AFTER logistics_no"),
+    ("shipped_at", "DATETIME DEFAULT NULL AFTER logistics_validation_no"),
 ]
 
 ADMIN_COLUMNS = [
