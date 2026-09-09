@@ -139,6 +139,19 @@ SOURCE_LABELS = {
     "manual": "手動建立",
 }
 
+# 出貨時要登錄的物流編號,各配送方式的名稱不同 (對應綠界物流的回傳欄位):
+#   宅配   → 托運單號 BookingNote
+#   店到店 → 超商寄貨編號 CVSPaymentNo
+# 7-11 交貨便另有驗證碼 CVSValidationNo,顧客取貨時需一併出示。
+LOGISTICS_NO_LABELS = {
+    "delivery": "宅配托運單號",
+    "fami": "全家寄貨編號",
+    "unimart": "7-11 寄貨編號",
+    "pickup": "取貨編號",
+}
+# 需要填寫驗證碼的配送方式
+LOGISTICS_VALIDATION_METHODS = ("unimart",)
+
 # 商品分類 (前後台共用的標準清單,順序即前台側邊選單的顯示順序)
 PACKAGE_CATEGORIES = [
     "蛋黃酥系列",

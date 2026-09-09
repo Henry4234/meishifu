@@ -278,6 +278,7 @@ package (禮盒 = 上架販售的商品) ← order_items 指向這裡
 | 腳本 | 內容 |
 |---|---|
 | `2026-09-05-orders-manual-and-store-address.sql` | orders 新增 `store_address`、`source`;`payment_method` 補 `cash`;`phone` 補 `DEFAULT ''` (並向下相容更舊的綠界欄位) |
+| `2026-09-09-orders-logistics-no.sql` | orders 新增 `logistics_no`、`logistics_validation_no`、`shipped_at` |
 
 ```bash
 # 執行前先備份
@@ -409,6 +410,29 @@ SDK 的 `updateWDJOptions()` 會把 `labelName/labelWidth/labelHeight` 轉成
 > 新增禮盒時記得在微打設計營養標示,並以**與禮盒完全相同的名稱**匯出到 `admin/labels/`,
 > 同時更新 `orders.html` 的 `NUTRITION_LABELS` 清單。
 
+## 出貨與物流編號
+
+訂單狀態改為「已出貨」時會跳出登錄視窗，**沒有填物流編號就不能出貨**——
+這組號碼會寫進出貨通知信，缺了顧客追蹤不到也領不到貨。前後端都會擋：
+前端在 `updateStatus()` 攔截 `shipped` 轉為開啟登錄視窗，後端
+`PATCH /admin/orders/:id/status` 收到 `shipped` 但沒有 `logistics_no` 時回 400。
+
+| 配送方式 | 欄位名稱 | 綠界對應欄位 | 驗證碼 |
+|---|---|---|---|
+| 宅配到府 | 宅配托運單號 | `BookingNote` | — |
+| 全家店到店 | 全家寄貨編號 | `CVSPaymentNo` | — |
+| 7-11 交貨便 | 7-11 寄貨編號 | `CVSPaymentNo` | **`CVSValidationNo`** |
+
+> **為什麼 7-11 要兩個號碼**：統一超商的取貨流程需要寄貨編號**與**驗證碼，
+> 只有寄貨編號顧客領不到貨。因此 `orders` 除了 `logistics_no` 另有
+> `logistics_validation_no`，僅在 7-11 交貨便時於登錄視窗顯示。
+
+欄位名稱由後端 `config.LOGISTICS_NO_LABELS` 提供（API 回傳 `logistics_label`
+與 `needs_validation_no`），前端不另外寫死一套說法，改配送方式時兩邊自然同步。
+
+相關欄位：`logistics_no` / `logistics_validation_no` / `shipped_at`，
+遷移腳本為 `deploy/sql/2026-09-09-orders-logistics-no.sql`。
+
 ## 訂單通知信
 
 | 觸發時機 | 對象 | 寄送方式 |
@@ -416,6 +440,8 @@ SDK 的 `updateWDJOptions()` 會把 `labelName/labelWidth/labelHeight` 轉成
 | 前台結帳成立 | 線上訂單 | 自動 (`shop.py` → `send_order_created`) |
 | 狀態改為已出貨 / 已完成 / 已取消 | 所有訂單 | 自動 (`NOTIFIABLE_STATUSES`,經 Cloud Tasks) |
 | 訂單成立、付款成功 | 手動建立的內部訂單為主 | **後台按鈕手動觸發** |
+
+出貨通知信會帶上**物流編號**（見下節），顧客靠它追蹤或取貨。
 
 手動建立的訂單不經前台結帳,所以不會自動收到訂單成立信;而「已付款」也刻意
 不放進 `NOTIFIABLE_STATUSES` —— 那一組是狀態一變就自動寄,收現金/轉帳的時間點

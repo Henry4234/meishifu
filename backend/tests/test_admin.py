@@ -123,6 +123,9 @@ def test_order_management(client, monkeypatch, auth_headers):
     assert detail["shipping_label"] == "全家店到店"
     assert detail["payment_label"] == "銀行 ATM 轉帳"
     assert detail["source_label"] == "手動建立"
+    # 出貨彈窗靠這兩個值決定欄位名稱與是否要求驗證碼
+    assert detail["logistics_label"] == "全家寄貨編號"
+    assert detail["needs_validation_no"] is False
     assert detail["paid_at"] == "2026-08-22 09:30"
 
     monkeypatch.setattr(db, "query_one", lambda *_args, **_kwargs: None)
@@ -142,6 +145,8 @@ def test_order_management(client, monkeypatch, auth_headers):
         "store_address": "",
         "shipping_method": "delivery",
         "status": "pending",
+        "logistics_no": "",
+        "logistics_validation_no": "",
     }
     dispatched = []
     monkeypatch.setattr(db, "query_one", lambda *_args, **_kwargs: status_order.copy())
@@ -154,13 +159,32 @@ def test_order_management(client, monkeypatch, auth_headers):
     assert updated.get_json()["notification"] == "skipped"
     assert dispatched[0]["status"] == "paid"
 
+    # 改為已出貨必須帶物流編號,否則擋下且不更動訂單
     executed.clear()
     dispatched.clear()
-    shipped = client.patch(
+    blocked = client.patch(
         "/api/admin/orders/7/status", json={"status": "shipped"}, headers=auth_headers())
+    assert blocked.status_code == 400
+    assert "宅配托運單號" in blocked.get_json()["error"]
+    assert executed == [] and dispatched == []
+
+    # 只有空白也不算填寫
+    assert client.patch(
+        "/api/admin/orders/7/status", headers=auth_headers(),
+        json={"status": "shipped", "logistics_no": "   "}).status_code == 400
+    assert executed == []
+
+    shipped = client.patch(
+        "/api/admin/orders/7/status", headers=auth_headers(),
+        json={"status": "shipped", "logistics_no": "TCAT0912345678"})
+    assert shipped.status_code == 200
     assert shipped.get_json()["notification"] == "skipped"
-    assert len(executed) == 1
+    assert shipped.get_json()["logistics_no"] == "TCAT0912345678"
+    # 一次寫物流編號 + 出貨時間,一次寫狀態
+    assert len(executed) == 2
+    assert "logistics_no" in executed[0][0] and "shipped_at" in executed[0][0]
     assert dispatched[0]["status"] == "shipped"
+    assert dispatched[0]["logistics_no"] == "TCAT0912345678"
 
     monkeypatch.setattr(
         db, "query_one", lambda *_args, **_kwargs: {**status_order, "status": "shipped"})

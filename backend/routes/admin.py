@@ -216,6 +216,12 @@ def order_detail(order_id):
         order["shipping_method"], order["shipping_method"])
     order["payment_label"] = config.PAYMENT_LABELS.get(
         order["payment_method"], order["payment_method"])
+    # 出貨彈窗要用這兩個值決定欄位名稱與是否要求驗證碼
+    order["logistics_label"] = config.LOGISTICS_NO_LABELS.get(
+        order["shipping_method"], "物流編號")
+    order["needs_validation_no"] = order["shipping_method"] in config.LOGISTICS_VALIDATION_METHODS
+    if order.get("shipped_at"):
+        order["shipped_at"] = order["shipped_at"].strftime("%Y-%m-%d %H:%M")
     order["items"] = db.query(
         "SELECT package_name AS product_name, unit_price, quantity, subtotal"
         " FROM order_items WHERE order_id = %s",
@@ -232,7 +238,8 @@ def update_status(order_id):
         return jsonify({"error": "狀態不正確"}), 400
     order = db.query_one(
         "SELECT id, order_no, customer_name, email, phone, address, store_id,"
-        " store_name, store_address, shipping_method, status FROM orders WHERE id = %s",
+        " store_name, store_address, shipping_method, status, logistics_no,"
+        " logistics_validation_no FROM orders WHERE id = %s",
         (order_id,),
     )
     if not order:
@@ -244,13 +251,35 @@ def update_status(order_id):
             "status_label": STATUS_LABELS[status],
             "notification": "unchanged",
         })
+
+    # 改為已出貨時必須登錄物流編號:顧客要靠這組號碼追蹤或取貨,
+    # 而且這組號碼會寫進出貨通知信,沒有就等於寄了一封沒用的信。
+    logistics_no = order["logistics_no"]
+    validation_no = order["logistics_validation_no"]
+    if status == "shipped":
+        logistics_no = (data.get("logistics_no") or logistics_no or "").strip()[:30]
+        validation_no = (data.get("logistics_validation_no") or validation_no or "").strip()[:20]
+        label = config.LOGISTICS_NO_LABELS.get(
+            order["shipping_method"], "物流編號")
+        if not logistics_no:
+            return jsonify({"error": f"改為已出貨前請先填寫{label}"}), 400
+        db.execute(
+            "UPDATE orders SET logistics_no = %s, logistics_validation_no = %s,"
+            " shipped_at = NOW() WHERE id = %s",
+            (logistics_no, validation_no, order_id))
+
     db.execute("UPDATE orders SET status = %s WHERE id = %s", (status, order_id))
     if status == "paid":
         db.execute("UPDATE orders SET payment_status = 'paid' WHERE id = %s", (order_id,))
-    notification = mail_tasks.dispatch_order_status({**order, "status": status})
+    notification = mail_tasks.dispatch_order_status({
+        **order, "status": status,
+        "logistics_no": logistics_no, "logistics_validation_no": validation_no,
+    })
     return jsonify({
         "id": order_id,
         "status": status,
         "status_label": STATUS_LABELS[status],
+        "logistics_no": logistics_no,
+        "logistics_validation_no": validation_no,
         "notification": notification,
     })

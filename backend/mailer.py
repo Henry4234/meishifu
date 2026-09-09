@@ -36,6 +36,29 @@ def store_destination(order: dict) -> str:
 NOTIFIABLE_STATUSES = frozenset({"shipped", "completed", "cancelled"})
 
 
+def logistics_lines(order: dict) -> str:
+    """出貨通知信裡的物流編號欄位。
+
+    名稱依配送方式而異 (宅配是托運單號、店到店是超商寄貨編號);
+    7-11 交貨便另有驗證碼,顧客取貨時要一併出示,少了就領不到貨。
+    """
+    number = (order.get("logistics_no") or "").strip()
+    if not number:
+        return ""
+    method = order.get("shipping_method", "")
+    label = escape(config.LOGISTICS_NO_LABELS.get(method, "物流編號"))
+    rows = [
+        f'<p style="margin:4px 0">{label}:'
+        f'<strong style="font-size:16px;color:#6e555d">{escape(number)}</strong></p>'
+    ]
+    validation = (order.get("logistics_validation_no") or "").strip()
+    if validation:
+        rows.append(
+            f'<p style="margin:4px 0">取貨驗證碼:'
+            f'<strong style="font-size:16px;color:#6e555d">{escape(validation)}</strong></p>')
+    return "".join(rows)
+
+
 def _send(to_email: str, subject: str, html: str, *, idempotency_key: str = "") -> bool:
     """透過 SMTP 寄信；回傳是否有實際送到 SMTP relay。
 
@@ -227,11 +250,15 @@ def render_order_status(order: dict, status: str) -> str:
         ),
     }
     title, message = content[status]
+    # 店到店要到門市取貨,說法與宅配不同
+    if status == "shipped" and order.get("shipping_method") in config.LOGISTICS_VALIDATION_METHODS + ("fami",):
+        message = "商品已寄出，到貨後超商會發送取貨通知，請憑下列編號至門市取貨。"
     customer_name = escape(str(order.get("customer_name") or "顧客"))
     order_no = escape(str(order["order_no"]))
     destination = escape(store_destination(order))
     shipping = escape(config.SHIPPING_LABELS.get(
         order.get("shipping_method", ""), order.get("shipping_method", "")))
+    logistics = logistics_lines(order) if status == "shipped" else ""
     return f"""
 <div style="font-family:'Helvetica Neue',Arial,'Microsoft JhengHei',sans-serif;
             background:#fff8f7;padding:24px;color:#30121a">
@@ -244,6 +271,7 @@ def render_order_status(order: dict, status: str) -> str:
       <p style="margin:0 0 8px">{message}</p>
       <p style="margin:4px 0">配送方式：{shipping or '-'}</p>
       <p style="margin:4px 0">收件資訊：{destination}</p>
+      {logistics}
     </div>
     <p style="margin:24px 0 0;font-size:13px;color:#807477">
       本信件由系統自動發送。如有任何訂單問題，請透過美師傅官方網站與我們聯絡。

@@ -31,7 +31,8 @@ def order_status_mail():
 
     order = db.query_one(
         "SELECT id, order_no, customer_name, email, phone, address, store_id,"
-        " store_name, store_address, shipping_method, status FROM orders WHERE id = %s",
+        " store_name, store_address, shipping_method, status, logistics_no,"
+        " logistics_validation_no FROM orders WHERE id = %s",
         (order_id,),
     )
     if not order:
