@@ -313,9 +313,13 @@
             <p class="font-caption text-primary tracking-wider mb-1">禮盒內容</p>
             <div class="flex flex-wrap gap-1">${packageContents(p)}</div>
           </div>
-          <button class="w-full py-sm bg-surface-container text-on-surface font-label-md rounded-lg hover:bg-primary-fixed hover:text-on-primary-fixed transition-colors flex items-center justify-center gap-xs" data-id="${p.id}">
-            <span class="material-symbols-outlined text-[18px]">add_shopping_cart</span> 加入購物車
-          </button>
+          ${p.is_sold_out
+            ? `<button class="w-full py-sm bg-surface-container text-outline-variant font-label-md rounded-lg flex items-center justify-center gap-xs cursor-not-allowed" disabled title="此商品已售完">
+                 <span class="material-symbols-outlined text-[18px]">remove_shopping_cart</span> 售完
+               </button>`
+            : `<button class="w-full py-sm bg-surface-container text-on-surface font-label-md rounded-lg hover:bg-primary-fixed hover:text-on-primary-fixed transition-colors flex items-center justify-center gap-xs" data-id="${p.id}">
+                 <span class="material-symbols-outlined text-[18px]">add_shopping_cart</span> 加入購物車
+               </button>`}
         </div>
       </article>`).join("");
         box.querySelectorAll("button[data-id]").forEach((btn) => {

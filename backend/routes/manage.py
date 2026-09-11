@@ -631,8 +631,8 @@ def list_packages():
     costs = package_costs()
     rows = db.query(
         "SELECT id, name, description, spec, category, price, image, tag,"
-        " packaging_material_id, packaging_qty, sort_order, is_active, created_at"
-        " FROM package ORDER BY sort_order, id")
+        " packaging_material_id, packaging_qty, sort_order, is_active, is_sold_out,"
+        " created_at FROM package ORDER BY sort_order, id")
     contents = db.query(
         "SELECT m.package_id, m.product_id, m.quantity, p.name, p.unit"
         " FROM package_products_map m JOIN products p ON p.id = m.product_id ORDER BY m.id")
@@ -728,13 +728,14 @@ def create_package():
     primary = form.get("category") or "其他"
     pkg_id = db.execute(
         "INSERT INTO package (name, description, spec, category, price, image, tag,"
-        " packaging_material_id, packaging_qty, sort_order, is_active)"
-        " VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+        " packaging_material_id, packaging_qty, sort_order, is_active, is_sold_out)"
+        " VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
         (name, form.get("description") or "", form.get("spec") or "",
          primary, price, image_path, form.get("tag") or "",
          form.get("packaging_material_id") or None, form.get("packaging_qty") or 1,
          form.get("sort_order") or 0,
-         1 if form.get("is_active", "1") in ("1", "true", "on") else 0),
+         1 if form.get("is_active", "1") in ("1", "true", "on") else 0,
+         1 if form.get("is_sold_out", "0") in ("1", "true", "on") else 0),
     )
     _replace_package_items(pkg_id, form.get("items"))
     _replace_package_categories(pkg_id, form.get("secondary_categories"), primary)
@@ -775,6 +776,9 @@ def update_package(pkg_id):
     if "is_active" in form:
         fields.append("is_active = %s")
         args.append(1 if form.get("is_active") in ("1", "true", "on") else 0)
+    if "is_sold_out" in form:
+        fields.append("is_sold_out = %s")
+        args.append(1 if form.get("is_sold_out") in ("1", "true", "on") else 0)
     if "image" in request.files and request.files["image"].filename:
         try:
             fields.append("image = %s")
@@ -840,6 +844,19 @@ def toggle_package_active(pkg_id):
         return jsonify({"error": "查無禮盒"}), 404
     db.execute("UPDATE package SET is_active = %s WHERE id = %s", (active, pkg_id))
     return jsonify({"id": pkg_id, "is_active": active})
+
+
+@manage_bp.patch("/packages/<int:pkg_id>/sold-out")
+@login_required
+def toggle_package_sold_out(pkg_id):
+    """切換售罄。售罄的禮盒前台仍看得到,但不能加入購物車,
+    與「下架」(整個從前台消失) 是兩件事。"""
+    data = request.get_json(silent=True) or {}
+    sold_out = 1 if data.get("is_sold_out") else 0
+    if not db.query_one("SELECT id FROM package WHERE id = %s", (pkg_id,)):
+        return jsonify({"error": "查無禮盒"}), 404
+    db.execute("UPDATE package SET is_sold_out = %s WHERE id = %s", (sold_out, pkg_id))
+    return jsonify({"id": pkg_id, "is_sold_out": sold_out})
 
 
 # ---------------------------------------------------------------- 用戶權限管理

@@ -288,6 +288,30 @@
       return Number(input.value);
     }
 
+    /* 售罄:停用數量與加入購物車,並明確標示完售。
+       後端在建立訂單時也會再擋一次,這裡只是不讓顧客白跑一趟。 */
+    function applySoldOut(pkg) {
+      ["qty", "qty-minus", "qty-plus"].forEach((id) => {
+        const el = document.getElementById(id);
+        el.disabled = true;
+        el.classList.add("opacity-40", "cursor-not-allowed");
+      });
+
+      const btn = document.getElementById("add-cart-btn");
+      btn.disabled = true;
+      btn.className =
+        "flex-1 py-md px-lg bg-surface-container-high text-on-surface-variant font-label-md " +
+        "rounded-full flex items-center justify-center gap-sm cursor-not-allowed";
+      btn.innerHTML =
+        '<span class="material-symbols-outlined text-[20px]">remove_shopping_cart</span>本商品已完售';
+
+      // 圖片與標題旁都標一次,顧客不論先看哪邊都不會漏掉
+      document.getElementById("tag-box").insertAdjacentHTML("afterbegin",
+        '<span class="px-sm py-xs bg-error text-on-error rounded-full font-label-md tracking-wider shadow-sm">完售</span>');
+      document.getElementById("p-name").insertAdjacentHTML("afterend",
+        '<p class="font-label-md text-label-md text-error">本商品已完售,目前無法訂購</p>');
+    }
+
     function render(pkg) {
       currentPackage = pkg;
       document.title = `${pkg.name} | 美師傅 meishifu`;
@@ -308,6 +332,8 @@
         document.getElementById("tag-box").innerHTML =
           `<span class="px-sm py-xs bg-surface/90 backdrop-blur-sm rounded-full font-label-md text-primary tracking-wider shadow-sm">${pkg.tag}</span>`;
       }
+
+      if (pkg.is_sold_out) applySoldOut(pkg);
 
       // 禮盒內容物 (有設定才顯示)
       if (pkg.items && pkg.items.length) {
@@ -335,7 +361,7 @@
 
     /* 加入購物車:傳入完整禮盒物件與數量 (site.js addToCart 需 id/name/spec/price/image) */
     document.getElementById("add-cart-btn").addEventListener("click", () => {
-      if (!currentPackage) return;
+      if (!currentPackage || currentPackage.is_sold_out) return;
       addToCart(currentPackage, clampQty());
     });
 

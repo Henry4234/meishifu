@@ -44,6 +44,8 @@ SCHEMA = [
         packaging_qty DECIMAL(12,3) NOT NULL DEFAULT 1,
         sort_order INT NOT NULL DEFAULT 0,
         is_active TINYINT(1) DEFAULT 1,
+        -- 售罄:仍在前台顯示,但不可加入購物車 (與「下架」的差別是下架會整個隱藏)
+        is_sold_out TINYINT(1) NOT NULL DEFAULT 0,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     """,
@@ -552,6 +554,19 @@ PRODUCT_SERIES = [
 ]
 
 
+def migrate_sold_out(cur):
+    """禮盒新增「售罄」狀態。
+
+    與「下架」不同:下架會讓禮盒從前台完全消失,售罄則仍然顯示 (顧客看得到商品
+    與價格),只是不能加入購物車。中秋這類季節性商品用售罄比下架合適。
+    """
+    if "is_sold_out" not in columns_of(cur, "package"):
+        cur.execute(
+            "ALTER TABLE package ADD COLUMN is_sold_out TINYINT(1) NOT NULL DEFAULT 0"
+            " AFTER is_active")
+        print("  package 新增欄位: is_sold_out")
+
+
 def migrate_multi_category(cur):
     """禮盒改為可同時歸屬多個系列:主要分類仍存在 package.category,
     次要分類存於 package_categories;另加 sort_order 供前台排序。"""
@@ -673,6 +688,7 @@ def main():
             migrate_bom_precision(cur)
             migrate_recipes(cur)
             migrate_multi_category(cur)
+            migrate_sold_out(cur)
             print("寫入種子資料...")
             seed(cur)
         conn.commit()

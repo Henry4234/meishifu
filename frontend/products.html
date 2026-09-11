@@ -196,14 +196,21 @@
           <p class="font-caption text-primary tracking-wider mb-1">禮盒內容</p>
           <div class="flex flex-wrap gap-1">${contents}</div>
         </div>
-        <div class="flex items-end justify-between mt-auto">
+        <div class="flex items-end justify-between mt-auto gap-sm">
           <a class="block" href="${link}">
             <span class="font-caption text-on-surface-variant block mb-1">${p.spec}</span>
             <span class="font-headline-md text-primary tracking-tight">${formatPrice(p.price)}</span>
           </a>
-          <button aria-label="加入購物車" class="add-btn w-10 h-10 rounded-full bg-surface-container-highest hover:bg-primary hover:text-on-primary text-primary flex items-center justify-center transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-primary/20" data-id="${p.id}">
-            <span class="material-symbols-outlined text-[20px] pointer-events-none">add_shopping_cart</span>
-          </button>
+          <div class="flex items-center gap-sm shrink-0">
+            ${p.is_sold_out ? '<span class="font-label-md text-label-md text-error whitespace-nowrap">售完</span>' : ""}
+            ${p.is_sold_out
+              ? `<button aria-label="已售完" class="w-10 h-10 rounded-full bg-surface-container text-outline-variant flex items-center justify-center cursor-not-allowed" disabled title="此商品已售完">
+                   <span class="material-symbols-outlined text-[20px] pointer-events-none">remove_shopping_cart</span>
+                 </button>`
+              : `<button aria-label="加入購物車" class="add-btn w-10 h-10 rounded-full bg-surface-container-highest hover:bg-primary hover:text-on-primary text-primary flex items-center justify-center transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-primary/20" data-id="${p.id}">
+                   <span class="material-symbols-outlined text-[20px] pointer-events-none">add_shopping_cart</span>
+                 </button>`}
+          </div>
         </div>
       </div>
     </article>`;

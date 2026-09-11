@@ -181,6 +181,43 @@ def test_create_order_validations(client, monkeypatch):
     assert post(base).status_code == 400
 
 
+def test_sold_out_package_cannot_be_ordered(client, monkeypatch):
+    """售罄的禮盒不得成立訂單。
+
+    前台按鈕會停用,但購物車存在 localStorage —— 顧客可能在售罄前就把商品放進
+    購物車,或直接呼叫 API,所以後端必須擋。
+    """
+    monkeypatch.setattr(
+        db, "query_one",
+        lambda *_a, **_k: {"id": 3, "name": "珍味禮盒", "price": 650, "is_sold_out": 1})
+    r = client.post("/api/orders", json={
+        "customer": _customer(store=_store("fami")),
+        "shipping_method": "fami",
+        "items": [{"package_id": 3, "quantity": 1}]})
+    assert r.status_code == 400
+    # 訊息要講清楚是哪一款、以及該怎麼處理
+    assert "珍味禮盒" in r.get_json()["error"]
+    assert "售完" in r.get_json()["error"]
+
+    # 未售罄則照常成立
+    monkeypatch.setattr(
+        db, "query_one",
+        lambda *_a, **_k: {"id": 3, "name": "珍味禮盒", "price": 650, "is_sold_out": 0})
+    conn = OrderConnection()
+    monkeypatch.setattr(db, "get_connection", lambda: conn)
+    monkeypatch.setattr(mailer, "send_order_created", lambda *_a: None)
+    ok = client.post("/api/orders", json={
+        "customer": _customer(store=_store("fami")),
+        "shipping_method": "fami",
+        "items": [{"package_id": 3, "quantity": 1}]})
+    assert ok.status_code == 201
+
+
+def test_public_package_api_exposes_sold_out():
+    """前台要靠 is_sold_out 決定是否停用加入購物車。"""
+    assert "is_sold_out" in shop.PACKAGE_FIELDS
+
+
 def test_shipping_fee_rules():
     """運費固定依配送方式收取,沒有免運門檻。"""
     assert config.SHIPPING_FEE == 130
@@ -238,7 +275,7 @@ def test_create_and_fetch_order(client, monkeypatch):
     monkeypatch.setattr(
         db,
         "query_one",
-        lambda *_args, **_kwargs: {"id": 3, "name": "禮盒", "price": 500},
+        lambda *_args, **_kwargs: {"id": 3, "name": "禮盒", "price": 500, "is_sold_out": 0},
     )
     monkeypatch.setattr(db, "get_connection", lambda: conn)
     monkeypatch.setattr(shop, "_gen_order_no", lambda: "MS-TEST")
@@ -304,7 +341,7 @@ def test_create_cvs_order_stores_map_selection(client, monkeypatch):
     conn = OrderConnection()
     mails = []
     monkeypatch.setattr(
-        db, "query_one", lambda *_args, **_kwargs: {"id": 3, "name": "禮盒", "price": 500})
+        db, "query_one", lambda *_args, **_kwargs: {"id": 3, "name": "禮盒", "price": 500, "is_sold_out": 0})
     monkeypatch.setattr(db, "get_connection", lambda: conn)
     monkeypatch.setattr(shop, "_gen_order_no", lambda: "MS-CVS")
     monkeypatch.setattr(mailer, "send_async", lambda *args: mails.append(args))

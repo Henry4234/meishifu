@@ -17,7 +17,8 @@ import mailer
 
 shop_bp = Blueprint("shop", __name__)
 
-PACKAGE_FIELDS = "id, name, description, spec, category, price, image, tag, sort_order"
+PACKAGE_FIELDS = ("id, name, description, spec, category, price, image, tag,"
+                  " sort_order, is_sold_out")
 
 
 def _secondary_categories(package_ids=None):
@@ -187,9 +188,14 @@ def create_order():
         if qty <= 0 or qty > 99:
             return jsonify({"error": "商品數量不正確"}), 400
         pkg = db.query_one(
-            "SELECT id, name, price FROM package WHERE id = %s AND is_active = 1", (pkg_id,))
+            "SELECT id, name, price, is_sold_out FROM package"
+            " WHERE id = %s AND is_active = 1", (pkg_id,))
         if not pkg:
             return jsonify({"error": f"禮盒 {pkg_id} 不存在或已下架"}), 400
+        # 前台按鈕會停用,但購物車存在 localStorage,售罄前加入的商品仍可能被送出,
+        # 所以後端必須再擋一次,否則售罄只是視覺效果。
+        if pkg["is_sold_out"]:
+            return jsonify({"error": f"「{pkg['name']}」已售完,請將它從購物車移除後再結帳"}), 400
         line_total = pkg["price"] * qty
         subtotal += line_total
         order_items.append((pkg["id"], pkg["name"], pkg["price"], qty, line_total))

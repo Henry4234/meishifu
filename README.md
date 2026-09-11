@@ -279,6 +279,7 @@ package (禮盒 = 上架販售的商品) ← order_items 指向這裡
 |---|---|
 | `2026-09-05-orders-manual-and-store-address.sql` | orders 新增 `store_address`、`source`;`payment_method` 補 `cash`;`phone` 補 `DEFAULT ''` (並向下相容更舊的綠界欄位) |
 | `2026-09-09-orders-logistics-no.sql` | orders 新增 `logistics_no`、`logistics_validation_no`、`shipped_at` |
+| `2026-09-11-package-sold-out.sql` | package 新增 `is_sold_out` (售罄，與下架不同) |
 
 ```bash
 # 執行前先備份
@@ -409,6 +410,29 @@ SDK 的 `updateWDJOptions()` 會把 `labelName/labelWidth/labelHeight` 轉成
 
 > 新增禮盒時記得在微打設計營養標示,並以**與禮盒完全相同的名稱**匯出到 `admin/labels/`,
 > 同時更新 `orders.html` 的 `NUTRITION_LABELS` 清單。
+
+## 售罄 (sold out)
+
+禮盒有兩種「不能買」的狀態，用途不同：
+
+| 狀態 | 欄位 | 前台行為 |
+|---|---|---|
+| 下架 | `is_active = 0` | 從商品列表**完全消失**，單品頁回 404 |
+| 售罄 | `is_sold_out = 1` | **仍然看得到**商品與價格，但無法加入購物車 |
+
+中秋這類季節性商品完售時用售罄較合適 —— 顧客仍看得到品項，只是買不到。
+
+後台「產品管理」的每張卡片有兩個開關（上架 / 售罄），禮盒編輯視窗也有對應的
+勾選框。前台的呈現：
+
+- `frontend/products.html` — 卡片右下角在購物車圖示左方顯示「售完」，按鈕停用。
+- `frontend/product.html` — 數量增減與加入購物車全部停用，標題下方與圖片上各標一次「完售」。
+
+> **後端會再擋一次**：購物車存在 localStorage，顧客可能在售罄前就把商品加入購物車，
+> 或直接呼叫 API。因此 `routes/shop.py` 建立訂單時會檢查 `is_sold_out`，
+> 回 400 並指名是哪一款售完 —— 少了這道，售罄就只是視覺效果。
+
+遷移腳本：`deploy/sql/2026-09-11-package-sold-out.sql`。
 
 ## 出貨與物流編號
 
